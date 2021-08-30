@@ -1,0 +1,325 @@
+---
+title: "In-class Exercise 3"
+description: |
+  In this in-class exercise, we learn about visualising extreme values through the use of percentile, box and rate maps.
+date: 08-30-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## 1.0 Installing Packages
+
+In this in-class exercise, we will be using the packages sf, tmap and tidyverse respectively. The code chunk below is used to install and load these packages in RStudio.
+
+```{r echo=TRUE, eval=TRUE}
+packages = c('sf', 'tmap', 'tidyverse')
+for (p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+
+## 2.0 The Data
+We will be using the dataset which is created from Hands-on Exercise 3. 
+
+### 2.1 Importing and Loading Dataset
+The code chunk below uses the read_rds() function of tidyverse package to import the dataset as a simple feature data frame called mpszpop2020.
+
+```{r echo=TRUE, eval=TRUE}
+mpszpop2020 = read_rds("data/rds/mpszpop2020.rds")
+```
+
+### 2.2 Data Preparation
+The mpszpop2020 dataset contains many observations with missing values. As a result, we will have to remove them as shown in the code chunk below.
+
+```{r echo=TRUE, eval=TRUE}
+mpszpop2020na <- mpszpop2020 %>% drop_na()
+```
+
+## 3.0 Visualising Extreme Values
+### 3.1 Boxplot
+Boxplot is able to show the statistics and distribution of data values
+
+- Handy in detecting outliers
+- Unable to reveal spatial distribution of these outliers
+
+
+The code chunk below plots a boxplot.
+
+```{r echo=TRUE, eval=TRUE}
+ggplot(data=mpszpop2020na, 
+       aes(x = "", y = AGED)) + geom_boxplot()
+```
+
+### 3.2 Extreme Value Maps
+
+- Variations of choropleth maps where the classification is designed to highlight extreme values at the lower and upper end of the scale, with the goal of identifying outliers
+
+#### 3.2.1 Percentile Map
+
+- Special type of ***quantile*** map with 6 categories: 0-1%, 1-10%, 10-50%, 50-90%, 90-99%, 99-100%
+- *Note: The begin and endpoint need to be included.*
+
+##### Extract a variable from a sf dataframe
+```{r echo=TRUE, eval=TRUE}
+percent <- c(0, .01, .1, .5, .9, .99, 1)
+var <- mpszpop2020na["DEPENDENCY"] %>% st_set_geometry(NULL)
+quantile(var[,1], percent)
+```
+
+##### Advantages of writing functions
+- Makes code easier to understand
+- As requirements change, we only need to update code in 1 place instead of many
+- Can eliminate the chance of making incidental mistakes while copy and pasting
+
+##### Creating the get.var function
+```{r echo=TRUE, eval=TRUE}
+get.var <- function(vname,df) {
+  v <- df[vname] %>% st_set_geometry(NULL)
+  v <- unname(v[,1])
+  return(v)
+}
+```
+
+The code chunk above extracts a variable as a vector out of a sf dataframe. 
+
+- Arguments
+  - vname: variable name
+  - df: name of sf dataframe
+- Returns
+  - vector with values (without a column name)
+
+
+##### Plotting a percentile map using tmap functions
+```{r echo=TRUE, eval=TRUE}
+percent <- c(0, .01, .1, .5, .9, .99, 1)
+var <- get.var("DEPENDENCY", mpszpop2020na)
+bperc <- quantile(var, percent)
+tm_shape(mpszpop2020) + 
+  tm_polygons() +
+tm_shape(mpszpop2020na) +
+  tm_fill("DEPENDENCY", 
+          title ="DEPENDENCY", 
+          breaks = bperc,
+          palette="Blues", 
+          labels=c("< 1%", "1% - 10%",
+                   "10% - 50%",
+                   "50% - 90%",
+                   "90% - 99%",
+                   "> 99%")) +
+  tm_borders() + 
+  tm_layout(title = "Percentile Map",
+            title.position = c("right", "bottom"))
+```
+
+##### Percentile mapping function
+```{r echo=TRUE, eval=TRUE}
+percentmap <- function(vnam, df, legtitle=NA, mtitle="Percentile Map") {
+  percent <- c(0, .01, .1, .5, .9, .99, 1)
+  var <- get.var(vnam, df)
+  bperc <- quantile(var, percent)
+  tm_shape(mpszpop2020) + 
+  tm_polygons() + 
+  tm_shape(df) +
+    tm_fill(vnam,
+            title=legtitle,
+            breaks=bperc,
+            palette="Blues",
+            labels=c("<1%", "1-10%", 
+                     "10-50%", "50-90%", 
+                     "90-99%", ">99%")) + 
+  tm_borders() + tm_layout(title=mtitle, title.position = c("right","bottom"))
+}
+```
+
+##### Testing the percentile mapping function
+```{r echo=TRUE, eval=TRUE}
+youngmap <- percentmap("YOUNG", mpszpop2020na)
+agedmap <- percentmap("AGED", mpszpop2020na)
+```
+
+##### "YOUNG" Percent Map 
+```{r}
+youngmap
+```
+
+##### "AGED" Percent Map 
+```{r}
+agedmap
+```
+
+#### 3.2.2 Box Map
+
+- Display summary statistics on a choropleth map by using the basic principles of a boxplot
+- Custom breaks specification has to be used to create a box map - however, it varies depending on whether lower or upper outliers are present
+
+##### Creating the boxbreaks function
+```{r echo=TRUE, eval=TRUE}
+boxbreaks <- function(v,mult=1.5) {
+  qv <- unname(quantile(v))
+  iqr <- qv[4] - qv[2]
+  upfence <- qv[4] + mult * iqr
+  lofence <- qv[2] - mult * iqr
+  # initialize break points vector
+  bb <- vector(mode="numeric",length=7)
+  # logic for lower and upper fences
+  if (lofence < qv[1]) {  # no lower outliers
+    bb[1] <- lofence
+    bb[2] <- floor(qv[1])
+  } else {
+    bb[2] <- lofence
+    bb[1] <- qv[1]
+  }
+  if (upfence > qv[5]) { # no upper outliers
+    bb[7] <- upfence
+    bb[6] <- ceiling(qv[5])
+  } else {
+    bb[6] <- upfence
+    bb[7] <- qv[5]
+  }
+  bb[3:5] <- qv[2:4]
+  return(bb)
+}
+```
+
+The code chunk above creates break points for a box map.
+
+- Arguments:
+  - v: vecctor with observations
+  - mult: multiplier for IQR (*default 1.5*)
+- Returns:
+  - bb: vector with 7 break points to compute quartiles and fences
+
+
+##### Creating the get.var function
+```{r echo=TRUE, eval=TRUE}
+get.var <- function(vname,df) {
+  v <- df[vname] %>% st_set_geometry(NULL)
+  v <- unname(v[,1])
+  return(v)
+}
+```
+
+The code chunk above is a function to extract a vector out of a sf dataframe.
+
+- Arguments
+  - vname: variable name
+  - df: name of sf dataframe
+- Returns
+  - vector with values (without a column name)
+
+
+##### Test drive the newly created function
+```{r echo=TRUE, eval=TRUE}
+var <- get.var("AGED", mpszpop2020na) 
+boxbreaks(var)
+```
+
+##### The code chunk below excludes observations with AGED=NA
+```{r echo=TRUE, eval=TRUE}
+mpszpop2020a <- mpszpop2020 %>% filter(AGED>=0)
+var <- get.var("AGED", mpszpop2020a)
+boxbreaks(var)
+```
+
+##### Boxmap function
+```{r echo=TRUE, eval=TRUE}
+boxmap <- function(vnam, df, 
+                   legtitle=NA,
+                   mtitle="Box Map",
+                   mult=1.5){
+  var <- get.var(vnam,df)
+  bb <- boxbreaks(var)
+  tm_shape(df) +
+     tm_fill(vnam,title=legtitle,
+             breaks=bb,
+             palette="Blues",
+          labels = c("lower outlier", 
+                     "< 25%", 
+                     "25% - 50%", 
+                     "50% - 75%",
+                     "> 75%", 
+                     "upper outlier"))  +
+  tm_borders() +
+  tm_layout(title = mtitle, 
+            title.position = c("right",
+                               "bottom"))
+}
+```
+
+The code chunk above is a R function to create a box map. 
+
+- Arguments:
+  - vnam: variable name 
+  - df: simple features polygon layer
+  - legtitle: legend title
+  - mtitle: map title
+  - mult: multiplier for IQR
+- Returns:
+  - tmap-element (plots a map)
+
+
+##### Testing the boxmap function
+```{r echo=TRUE, eval=TRUE, fig.width=12, fig.height=6}
+boxmap("ECONOMY ACTIVE", mpszpop2020a)
+```
+
+- There are 8 upper outliers (i.e. planning subzone with extremely high numbers of economically active population)
+- 4 upper outliers are located at the eastern region and they are close to each other
+- There is no lower outlier
+
+
+##### Tidy version of boxmap
+```{r echo=TRUE, eval=TRUE}
+boxmap <- function(vnam, df, 
+                   legtitle=NA,
+                   mtitle="Box Map",
+                   mult=1.5){
+  var <- get.var(vnam,df)
+  bb <- boxbreaks(var)
+  tm_shape(mpszpop2020) + 
+  tm_polygons() +
+  tm_shape(df) +
+     tm_fill(vnam,title=legtitle,
+             breaks=bb,
+             palette="Blues",
+          labels = c("lower outlier", 
+                     "< 25%", 
+                     "25% - 50%", 
+                     "50% - 75%",
+                     "> 75%", 
+                     "upper outlier"))  +
+  tm_borders() +
+  tm_layout(title = mtitle, 
+            title.position = c("right",
+                               "bottom"))
+}
+```
+
+##### Testing the tidy version of boxmap function
+```{r echo=TRUE, eval=TRUE}
+boxmap("ECONOMY ACTIVE", mpszpop2020a)
+```
+
+#### 3.2.3 Choropleth Map for Rates
+- It is important to account how the population is distributed in space, so that we will not end up mapping population size instead of our topic of interest
+
+##### Computing the raw rate
+```{r echo=TRUE, eval=TRUE}
+mpszpop2020a <- mpszpop2020 %>% mutate(`AGED%` = (`AGED`/`TOTAL`)*100) %>%
+                filter(`AGED%` >= 0)
+```
+
+##### Use the boxmap function to plot the raw rate map
+```{r echo=TRUE, eval=TRUE}
+var <- get.var("AGED%", mpszpop2020a)
+boxbreaks(var)
+boxmap("AGED%",mpszpop2020a)
+```
