@@ -2,7 +2,7 @@
 title: "In-class Exercise 4"
 description: |
   This in-class exercise is a short recap of what is covered in Hands-on Exercise 4, with some concepts being reiterated again. 
-author: []
+author: "Genice Goh"
 date: 09-06-2021
 output:
   distill::distill_article:
