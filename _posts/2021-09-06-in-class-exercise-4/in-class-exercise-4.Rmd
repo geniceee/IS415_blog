@@ -1,0 +1,106 @@
+---
+title: "In-class Exercise 4"
+description: |
+  This in-class exercise is a short recap of what is covered in Hands-on Exercise 4, with some concepts being reiterated again. 
+author: []
+date: 09-06-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Installing and Loading Packages
+
+- sf: handle vector data
+- spatstat: used for spatial analysis
+- raster: handle raster-based geospatial data
+- map tools: convert spatial object class to ppp(Spatstat) format 
+- tmap: handle map plotting
+- tidyverse: handle aspatial data
+
+```{r echo=TRUE, eval=TRUE}
+packages = c('sf', 'spatstat', 'raster', 'maptools', 'tmap', 'tidyverse')
+for (p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+
+## Importing Geospatial Data
+```{r echo=TRUE, eval=TRUE}
+sg_sf <- st_read(dsn="data/shapefile",
+                 layer="CostalOutline")
+mpsz_sf <- st_read(dsn="data/shapefile",
+                   layer="MP14_SUBZONE_WEB_PL")
+```
+
+## Importing Aspatial Data
+```{r echo=TRUE, eval=TRUE}
+childcare <- read_rds("data/rds/childcare.rds")
+CHAS <- read_rds("data/rds/CHAS.rds")
+```
+
+## Converting from aspatial to geospatial
+```{r echo=TRUE, eval=TRUE}
+CHAS_sf <- st_as_sf(CHAS, 
+                    coords = c("X_COORDINATE", "Y_COORDINATE"),
+                    crs=3414)
+```
+*Note: For CHAS dataset, there are columns which are X and Y coordinates. This means that the dataset is in SVY21, and we only need to assign EPSG code of 3414*
+
+```{r echo=TRUE, eval=TRUE}
+childcare$Lat <- as.numeric(childcare$Lat)
+childcare$Lng <- as.numeric(childcare$Lng)
+childcare_sf <- st_as_sf(childcare,
+                         coords = c("Lng", "Lat"),
+                         crs=4326) %>%
+  st_transform(crs=3414)
+```
+*Note: Childcare dataset lat and long columns are in decimal degrees. This means that the dataset is in WGS84, so we will need to assign EPSG code of 4326 before transforming the decimal degrees to metres (SVY21) using st_transform*
+
+## Geospatial Data Wrangling
+
+### Converting from sf to Spatial* classes
+```{r echo=TRUE, eval=TRUE}
+childcare <- as_Spatial(childcare_sf)
+CHAS <- as_Spatial(CHAS_sf)
+mpsz <- as_Spatial(mpsz_sf)
+sg <- as_Spatial(sg_sf)
+```
+
+### Converting from Spatial* classes to sp format
+```{r echo=TRUE, eval=TRUE}
+childcare_sp <- as(childcare,"SpatialPoints")
+CHAS_sp <- as(CHAS,"SpatialPoints")
+sg_sp <- as(sg,"SpatialPolygons")
+```
+
+Key difference between Spatial* classes and sp format:
+- Spatial* classes still have associated data
+- sp format will drop data table, will only leave geometries
+
+### Converting from sp to spatstat ppp format
+```{r echo=TRUE, eval=TRUE}
+childcare_ppp <- as(childcare_sp, "ppp")
+CHAS_ppp <- as(CHAS_sp, "ppp")
+```
+- ppp format drops the projection, that's why any spatstat generated output don't have projection --> when convert back to raster layer, need to put back the georeferencing system
+
+## Plotting the points using tmap
+```{r echo=TRUE, eval=TRUE}
+tmap_mode('view')
+tm_shape(childcare_sf) + 
+  tm_dots(alpha=0.4, col="blue", size=0.05) +
+tm_shape(CHAS_sf) + 
+  tm_dots(alpha=0.4, col="red", size=0.05)
+```
+```{r echo=TRUE, eval=TRUE}
+tmap_mode('plot')
+```

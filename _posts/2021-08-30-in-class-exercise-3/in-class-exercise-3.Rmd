@@ -24,6 +24,8 @@ for (p in packages){
   }
   library(p,character.only = T)
 }
+
+print(packages)
 ```
 
 ## 2.0 The Data
@@ -34,6 +36,7 @@ The code chunk below uses the read_rds() function of tidyverse package to import
 
 ```{r echo=TRUE, eval=TRUE}
 mpszpop2020 = read_rds("data/rds/mpszpop2020.rds")
+print(mpszpop2020)
 ```
 
 ### 2.2 Data Preparation
