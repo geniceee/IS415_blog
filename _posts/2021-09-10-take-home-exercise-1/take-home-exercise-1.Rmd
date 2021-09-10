@@ -260,7 +260,9 @@ Since the value TRUE is returned, it implies that the dataset contains NA values
 sum(is.na(covidDKI)) > 0
 ```
 
-The functopm *drop_na* is used to drop the NA values in the dataset.
+
+The function *drop_na* is used to drop the NA values in the dataset.
+
 
 ```{r echo=TRUE, eval=FALSE}
 covidDKI <- drop_na(covidDKI)
@@ -352,3 +354,224 @@ jakartaDKI_risk <- jakartaDKI %>%
   mutate(`RELATIVE_RISK` = (rowSums(.[23:39]) * 100) / 
            (rowSums(.[23:39]) * jakartaDKI$JUMLAH_PEN))
 ```
+
+## 5.0 Thematic Mapping
+
+Choropleth mapping techniques will be used to analyse the spatial-temporal patterns of monthly cumulative confirmed cases rates and death rates in Jakarta DKI at the sub-district level.
+
+### 5.1 Converting datasets to sf format
+
+The required datasets need to be converted to sf format using *st_as_sf()* so that we can create plots using tmap.
+
+```{r echo=TRUE, eval=TRUE}
+jakartaDKI <- st_as_sf(jakartaDKI)
+jakartaDKI_rates <- st_as_sf(jakartaDKI_rates)
+jakartaDKI_risk <- st_as_sf(jakartaDKI_risk)
+```
+
+### 5.2 Classification Method
+
+In order to have a common basis of comparison among the choropleth maps, they need to use the same classification method. 
+
+The equal intervals classification method with custom breaks will be utilised to plot the choropleth map.  
+
+### 5.2.1 Selecting Custom Breaks
+
+To specify the intervals of the break points, descriptive statistics of the cumulative confirmed cases rates and deaths rates are examined. 
+
+```{r echo=TRUE, eval=TRUE}
+summary(jakartaDKI_rates$POSITIF_Mar20)
+```
+
+```{r echo=TRUE, eval=TRUE}
+summary(jakartaDKI_rates$POSITIF_Jul21)
+```
+
+- The cumulative confirmed cases rates range from 0 to 3808 across the sub-districts from Mar20 to Jul21.
+- Break points can therefore be defined to be in intervals of 476, with a total number of 8 classes.
+
+```{r echo=TRUE, eval=TRUE}
+summary(jakartaDKI_rates$MENINGGAL_Mar20)
+```
+
+```{r echo=TRUE, eval=TRUE}
+summary(jakartaDKI_rates$MENINGGAL_Jul21)
+```
+
+- The cumulative death rates range from 0 to 42 across the sub-districts from Mar20 to Jul21.
+- Break points can therefore be defined to be in intervals of 6, with a total number of 7 classes.
+
+For both cumulative confirmed cases rates and death rates, it should be kept in mind that there may be over-generalisation of map data due to the intervals of the break points. This is especially during the earlier months where the cumulative confirmed cases rates and death rates are both low, and important spatial trends may have been missed. 
+
+As a result, the Jenks Classification Method will be utilised to plot the choropleth maps as well. This is because it allows for natural breaks, where break points are specified in a way that maximises within-group homogeneity and between-group heterogeneity. This can help us to capture potential critical spatial trends that we may have overlooked previously.  
+
+### 5.3 Equal Intervals Classification Method
+
+The *equal_positif* and *equal_meninggal* functions are created to perform choropleth mapping using the equal intervals classification method with custom breaks. 
+
+As mentioned earlier, there are a total number of 8 classes defined, with an interval of 476 for the cumulative confirmed cases rates. 
+
+```{r echo=TRUE, eval=TRUE}
+equal_positif <- function(df, vnam) {
+  tm_shape(jakartaDKI_rates)+
+  tm_fill(vnam,
+          breaks = c(0, 476, 952, 1428, 1904, 2380, 2856, 3332, 3808),
+          palette="Blues") +
+  tm_borders(lwd = 0.1,
+             alpha = 0.3) + 
+  tm_layout(panel.show = TRUE,
+            panel.labels = vnam,
+            panel.label.size = 0.5,
+            legend.show=FALSE)
+}
+```
+
+For the cumulative death rates, there are a total number of 7 classes defined, with an interval of 6. 
+
+```{r echo=TRUE, eval=TRUE}
+equal_meninggal <- function(df, vnam) {
+  tm_shape(jakartaDKI_rates)+
+  tm_fill(vnam,
+          breaks = c(0, 6, 12, 18, 24, 30, 36, 42),
+          palette="Blues") +
+  tm_borders(lwd = 0.1,
+             alpha = 0.3) + 
+  tm_layout(panel.show = TRUE,
+            panel.labels = vnam,
+            panel.label.size = 0.5,
+            legend.show=FALSE)
+}
+```
+
+As seen in the code chunks below, the *equal_positif* and *equal_meninggal* functions can be easily applied to create choropleth maps for the cumulative confirmed cases rates and death rates without much duplicate code. The choropleth maps are then arranged together using *tmap_arrange()* to aid easier spotting of patterns over space and time. 
+
+### 5.3.1 Cumulative Confirmed Cases Rates By Month
+```{r echo=TRUE, eval=TRUE}
+tmap_arrange(equal_positif(jakartaDKI_rates, "POSITIF_Mar20"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_Apr20"),
+             equal_positif(jakartaDKI_rates, "POSITIF_May20"),
+             equal_positif(jakartaDKI_rates, "POSITIF_Jun20"),
+             equal_positif(jakartaDKI_rates, "POSITIF_Jul20"),
+             equal_positif(jakartaDKI_rates, "POSITIF_Aug20"),
+             equal_positif(jakartaDKI_rates, "POSITIF_Sep20"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_Oct20"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_Nov20"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_Dec20"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_Jan21"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_Feb21"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_Mar21"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_Apr21"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_May21"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_Jun21"), 
+             equal_positif(jakartaDKI_rates, "POSITIF_Jul21"))
+```
+
+- A darker shade of blue signifies higher cumulative confirmed cases rates.
+- Not much spatial patterns can be observed from March 2020 to January 2021.
+- It can be observed that only 1 sub-district in the central region has higher cumulative confirmed cases rates in February 2021.
+- However, sub-districts in the surroundings begin to have higher cumulative confirmed cases rates across time as well, which can be seen from March 2021 to July 2021.
+- In the month of July 2021, it can be seen that the sub-districts with high cumulative confirmed cases rates are concentrated in the central region, while other sub-districts are also observed to have higher cumulative confirmed cases rates as compared to March 2020.
+
+### 5.3.2 Cumulative Death Rates By Month
+```{r echo=TRUE, eval=TRUE}
+tmap_arrange(equal_meninggal(jakartaDKI_rates, "MENINGGAL_Mar20"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Apr20"),
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_May20"),
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Jun20"),
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Jul20"),
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Aug20"),
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Sep20"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Oct20"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Nov20"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Dec20"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Jan21"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Feb21"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Mar21"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Apr21"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_May21"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Jun21"), 
+             equal_meninggal(jakartaDKI_rates, "MENINGGAL_Jul21"))
+```
+
+- A darker shade of blue signifies higher cumulative death rates.
+- Not much spatial patterns can be observed from March 2020 to January 2021.
+- Similarly, there is 1 sub-district in the central region with higher cumulative death rates in February 2021. It can also be observed from March 2021 to July 2021 that the surrounding sub-districts begin to have higher cumulative death rates as well.
+- The trend identified earlier is also observed here: in July 2021, it can be seen that the sub-districts with high cumulative death rates are concentrated in the central region, while other sub-districts are also observed to have higher cumulative death rates as compared to March 2020.
+
+Similar to what we have predicted before, we cannot identify significant spatial patterns from March 2020 to January 2021, which may have been lost due to the break points defined. As a result, choropleth maps using the Jenks classification method will be created to give further insights.
+
+### 5.4 Jenks Classification Method
+
+The *jenks* function is created to perform choropleth mapping using the Jenks classification method. 
+
+```{r echo=TRUE, eval=TRUE}
+jenks <- function(df, vnam){
+  tm_shape(df) +
+     tm_fill(vnam,
+             n = 5,
+             style = "jenks",
+             palette="Blues")  +
+  tm_borders(lwd = 0.1,
+             alpha = 0.3) +
+  tm_layout(panel.show = TRUE,
+            panel.labels = vnam,
+            panel.label.size = 0.5,
+            legend.show=FALSE)
+}
+```
+
+As seen in the code chunks below, the *jenks* function can be easily applied to create choropleth maps for the cumulative confirmed cases rates and death rates without much duplicate code. The choropleth maps are then arranged together using *tmap_arrange()* to aid easier spotting of patterns over space and time.
+
+### 5.4.1 Cumulative Confirmed Cases Rates By Month
+```{r echo=TRUE, eval=TRUE}
+tmap_arrange(jenks(jakartaDKI_rates, "POSITIF_Mar20"), 
+             jenks(jakartaDKI_rates, "POSITIF_Apr20"),
+             jenks(jakartaDKI_rates, "POSITIF_May20"),
+             jenks(jakartaDKI_rates, "POSITIF_Jun20"),
+             jenks(jakartaDKI_rates, "POSITIF_Jul20"),
+             jenks(jakartaDKI_rates, "POSITIF_Aug20"),
+             jenks(jakartaDKI_rates, "POSITIF_Sep20"), 
+             jenks(jakartaDKI_rates, "POSITIF_Oct20"), 
+             jenks(jakartaDKI_rates, "POSITIF_Nov20"), 
+             jenks(jakartaDKI_rates, "POSITIF_Dec20"), 
+             jenks(jakartaDKI_rates, "POSITIF_Jan21"), 
+             jenks(jakartaDKI_rates, "POSITIF_Feb21"), 
+             jenks(jakartaDKI_rates, "POSITIF_Mar21"), 
+             jenks(jakartaDKI_rates, "POSITIF_Apr21"), 
+             jenks(jakartaDKI_rates, "POSITIF_May21"), 
+             jenks(jakartaDKI_rates, "POSITIF_Jun21"), 
+             jenks(jakartaDKI_rates, "POSITIF_Jul21"))
+```
+
+- A darker shade of blue signifies higher cumulative confirmed cases rates.
+- With the use of Jenks classification method, spatial patterns can be observed for all weeks. 
+- In the earlier analysis using Equal Intervals classification method, it can be gathered that COVID-19 cases originated from the central region in February 2021. However, it can now be observed that initially in March 2020, some sub-districts located in the central region and along the western coast already have higher cumulative confirmed cases rates.
+- It can also seen that the sub-districts in the central region are most hit by COVID-19, even across time. They are consistently represented by darker shades of blue in the choropleth maps, especially from August 2020 onwards. 
+- Moreover, it can be understood that COVID-19 was spread to the southern region across time. This is because several sub-districts in the south are observed to have higher cumulative confirmed cases rates as the months pass.
+
+### 5.4.2 Cumulative Death Rates By Month
+```{r echo=TRUE, eval=TRUE}
+tmap_arrange(jenks(jakartaDKI_rates, "MENINGGAL_Mar20"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_Apr20"),
+             jenks(jakartaDKI_rates, "MENINGGAL_May20"),
+             jenks(jakartaDKI_rates, "MENINGGAL_Jun20"),
+             jenks(jakartaDKI_rates, "MENINGGAL_Jul20"),
+             jenks(jakartaDKI_rates, "MENINGGAL_Aug20"),
+             jenks(jakartaDKI_rates, "MENINGGAL_Sep20"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_Oct20"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_Nov20"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_Dec20"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_Jan21"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_Feb21"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_Mar21"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_Apr21"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_May21"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_Jun21"), 
+             jenks(jakartaDKI_rates, "MENINGGAL_Jul21"))
+```
+
+- A darker shade of blue signifies higher cumulative death rates.
+- With the use of Jenks classification method, spatial patterns can be observed for all weeks. 
+- In the earlier analysis using Equal Intervals classification method, it was observed that only 1 sub-district in the central region has higher cumulative death rates in February 2021. However, it can now be observed that initially in March 2020, some sub-districts located in the central region and along the north-western coast already have higher cumulative death rates.
+- It can also seen that the sub-districts in the central region are most hit by COVID-19, even across time. They are consistently represented by darker shades of blue in the choropleth maps, especially from August 2020 onwards. 
+- Moreover, it can be understood that COVID-19 was spread to the southern region across time. This is because several sub-districts in the south are observed to have higher cumulative death rates as the months pass.
