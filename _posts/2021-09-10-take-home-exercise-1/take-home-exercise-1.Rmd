@@ -25,7 +25,7 @@ For this assignment, the following data is used:
 - Daily COVID-19 data at both sub-district and distict level. It is extracted from [Open Data Covid-19 Provinsi DKI Jakarta](https://riwayat-file-covid-19-dki-jakarta-jakartagis.hub.arcgis.com/).
 - Geospatial data of Jakarta DKI in the form of a Shapefile (SHP). It is extracted from [PODES 2019](https://www.indonesia-geospasial.com/2020/04/download-shapefile-shp-batas-desa.html).
 
-## 3.0 Instaling and Loading Packages
+## 3.0 Installing and Loading Packages
 
 In this take-home exercise, the packages sf, tidyverse, tmap and readxl are used. 
 
