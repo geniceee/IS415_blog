@@ -502,7 +502,9 @@ Similar to what we have predicted before, we cannot identify significant spatial
 
 ### 5.4 Jenks Classification Method
 
+
 The *jenks* function is created to perform choropleth mapping using the Jenks classification method. 
+
 
 ```{r echo=TRUE, eval=TRUE}
 jenks <- function(df, vnam){
@@ -575,3 +577,148 @@ tmap_arrange(jenks(jakartaDKI_rates, "MENINGGAL_Mar20"),
 - In the earlier analysis using Equal Intervals classification method, it was observed that only 1 sub-district in the central region has higher cumulative death rates in February 2021. However, it can now be observed that initially in March 2020, some sub-districts located in the central region and along the north-western coast already have higher cumulative death rates.
 - It can also seen that the sub-districts in the central region are most hit by COVID-19, even across time. They are consistently represented by darker shades of blue in the choropleth maps, especially from August 2020 onwards. 
 - Moreover, it can be understood that COVID-19 was spread to the southern region across time. This is because several sub-districts in the south are observed to have higher cumulative death rates as the months pass.
+
+## 6.0 Analytical Mapping
+
+Extreme value maps are variations of common choropleth maps where the classification is designed to highlight extreme values at the lower and upper end of the scale, with the goal of identifying outliers.
+
+### 6.1 Box Maps
+
+The code below shows the *boxbreak* function, which is used to create break points for a box map.
+
+```{r echo=TRUE, eval=TRUE}
+ boxbreaks <- function(v,mult=1.5) {
+   qv <- unname(quantile(v))
+   iqr <- qv[4] - qv[2]
+   upfence <- qv[4] + mult * iqr
+   lofence <- qv[2] - mult * iqr
+   # initialize break points vector
+   bb <- vector(mode="numeric",length=7)
+   # logic for lower and upper fences
+   if (lofence < qv[1]) {  # no lower outliers
+     bb[1] <- lofence
+     bb[2] <- floor(qv[1])
+   } else {
+     bb[2] <- lofence
+     bb[1] <- qv[1]
+   }
+   if (upfence > qv[5]) { # no upper outliers
+     bb[7] <- upfence
+     bb[6] <- ceiling(qv[5])
+   } else {
+     bb[6] <- upfence
+     bb[7] <- qv[5]
+   }
+   bb[3:5] <- qv[2:4]
+   return(bb)
+}
+```
+
+The code chunk below shows the *get.var* function, which extracts a variable as a vector out of an sf data frame.
+
+```{r echo=TRUE, eval=TRUE}
+get.var <- function(vname, df) {
+  v <- df[vname] 
+  v <- unname(v[[1]])
+  return(v)
+}
+```
+
+Lastly, the code chunk below shows the *boxmap* function, which helps to create a box map.
+
+```{r echo=TRUE, eval=TRUE}
+ boxmap <- function(vnam, df,
+                    legtitle=NA,
+                    mtitle="Box Map",
+                    mult=1.5){
+   var <- get.var(vnam,df)
+   bb <- boxbreaks(var)
+   tm_shape(df) +
+      tm_fill(vnam,title=legtitle,
+              breaks=bb,
+              palette="Blues",
+           labels = c("lower outlier",
+                      "< 25%",
+                      "25% - 50%",
+                      "50% - 75%",
+                      "> 75%",
+                      "upper outlier"))  +
+   tm_borders(lwd = 0.1,
+             alpha = 0.3) +
+   tm_layout(panel.show = TRUE,
+            panel.labels = vnam,
+            panel.label.size = 0.5,
+            legend.show=FALSE)
+}
+```
+
+As seen in the code chunks below, the *boxmap* function can be easily applied to create box maps for the cumulative confirmed cases rates and death rates without much duplicate code. The box maps are then arranged together using *tmap_arrange()* to aid easier spotting of patterns over space and time. 
+
+### 6.1.1 Cumulative Confirmed Cases Rates By Month
+```{r echo=TRUE, eval=TRUE}
+tmap_arrange(boxmap("POSITIF_Mar20", jakartaDKI_rates),
+             boxmap("POSITIF_Apr20", jakartaDKI_rates),
+             boxmap("POSITIF_May20", jakartaDKI_rates),
+             boxmap("POSITIF_Jun20", jakartaDKI_rates),
+             boxmap("POSITIF_Jul20", jakartaDKI_rates),
+             boxmap("POSITIF_Aug20", jakartaDKI_rates),
+             boxmap("POSITIF_Sep20", jakartaDKI_rates),
+             boxmap("POSITIF_Oct20", jakartaDKI_rates),
+             boxmap("POSITIF_Nov20", jakartaDKI_rates),
+             boxmap("POSITIF_Dec20", jakartaDKI_rates),
+             boxmap("POSITIF_Jan21", jakartaDKI_rates),
+             boxmap("POSITIF_Feb21", jakartaDKI_rates),
+             boxmap("POSITIF_Mar21", jakartaDKI_rates),
+             boxmap("POSITIF_Apr21", jakartaDKI_rates),
+             boxmap("POSITIF_May21", jakartaDKI_rates),
+             boxmap("POSITIF_Jun21", jakartaDKI_rates),
+             boxmap("POSITIF_Jul21", jakartaDKI_rates))
+```
+
+- A darker shade of blue signifies upper outliers.
+- It can be observed that there are upper outliers in March 2020, with most of them located in the central region and only 1 along the north-western coast.
+- The upper outliers are consistently located in the central region, across time.
+
+### 6.1.2 Cumulative Death Rates By Month
+```{r echo=TRUE, eval=TRUE}
+tmap_arrange(boxmap("MENINGGAL_Apr20", jakartaDKI_rates),
+             boxmap("MENINGGAL_Apr20", jakartaDKI_rates),
+             boxmap("MENINGGAL_May20", jakartaDKI_rates),
+             boxmap("MENINGGAL_Jun20", jakartaDKI_rates),
+             boxmap("MENINGGAL_Jul20", jakartaDKI_rates),
+             boxmap("MENINGGAL_Aug20", jakartaDKI_rates),
+             boxmap("MENINGGAL_Sep20", jakartaDKI_rates),
+             boxmap("MENINGGAL_Oct20", jakartaDKI_rates),
+             boxmap("MENINGGAL_Nov20", jakartaDKI_rates),
+             boxmap("MENINGGAL_Dec20", jakartaDKI_rates),
+             boxmap("MENINGGAL_Jan21", jakartaDKI_rates),
+             boxmap("MENINGGAL_Feb21", jakartaDKI_rates),
+             boxmap("MENINGGAL_Mar21", jakartaDKI_rates),
+             boxmap("MENINGGAL_Apr21", jakartaDKI_rates),
+             boxmap("MENINGGAL_May21", jakartaDKI_rates),
+             boxmap("MENINGGAL_Jun21", jakartaDKI_rates),
+             boxmap("MENINGGAL_Jul21", jakartaDKI_rates))
+```
+
+- A darker shade of blue signifies upper outliers.
+- It can be observed that there are upper outliers in March 2020, with most of them located in the central region and only 1 along the north-western coast.
+- The upper outliers are consistently located in the central region, across time.
+
+## 6.2 Relative Risk Map
+
+Relative risk map analysis helps to compare the observed mortality rate to a national standard across space.
+
+```{r echo=TRUE, eval=TRUE}
+rel_risk_map <- tm_shape(jakartaDKI_risk) +
+  tm_fill("RELATIVE_RISK",
+          n = 6,
+          style = "jenks",
+          palette = "Blues") +
+  tm_borders(lwd=0.1, alpha = 1) +
+  tm_layout(main.title = "RELATIVE_RISK",
+              main.title.size = 0.5,
+              main.title.position="center",
+              legend.text.size = 1)
+
+rel_risk_map
+```
