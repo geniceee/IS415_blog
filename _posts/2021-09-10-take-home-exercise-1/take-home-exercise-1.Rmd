@@ -1,7 +1,7 @@
 ---
 title: "Take-home Exercise 1"
 description: |
-  Detecting Spatial-Temporal Patterns of Monthly Cumulative Confirmed Cases Rates and Death Rates in Jakarta DKI.
+  Detecting Spatial-Temporal Patterns of COVID-19 in Jakarta DKI.
 author:
   - name: Genice Goh
     url: {}
@@ -320,7 +320,7 @@ jakartaDKI <- right_join(covidDKI, DKI23845,
 
 ### 4.3.1 Checking for NA values
 
-Since the value returned is FALSE, there are no NA vlues in the dataset.
+Since the value returned is FALSE, there are no NA values in the dataset.
 
 ```{r echo=TRUE}
 sum(is.na(jakartaDKI)) > 0
@@ -705,8 +705,9 @@ tmap_arrange(boxmap("MENINGGAL_Mar20", jakartaDKI_rates),
              boxmap("MENINGGAL_Jun21", jakartaDKI_rates),
              boxmap("MENINGGAL_Jul21", jakartaDKI_rates))
 ```
-- A darker shade of blue signifies upper outliers.
+
 - The cumulative death rates box map for March 2020 shows that most sub-districts are upper outliers. This map does not make sense as the virus had only reached Indonesia in March 2020. Plotting the box plot may reveal the reason this box map looks different.
+- In March 2020, the cumulative death rates range from 0 to 3, with hardly any distribution as seen in the box plot. It is therefore not wise to perform any statistical analysis on Mach 2020 and its cumulative death rates box plot will not be taken into account in the later analysis below.
 
 ```{r echo=TRUE, eval=TRUE}
 ggplot(data=jakartaDKI_rates, 
@@ -715,9 +716,7 @@ ggplot(data=jakartaDKI_rates,
   geom_boxplot()
 ```
 
-- In March 2020, the number of deaths range from 0 to 3, with hardly any distribution. It is therefore not wise to perform any statistical analysis and the cumulative death rates box plot will not be taken into account in the later analysis below.
-
-
+- A darker shade of blue signifies upper outliers.
 - Similar to the cumulative confirmed cases rates box map, it can be observed that the upper outliers are consistently located in the central region, even across the months.
 - The number of upper outliers are also seen to decrease as months pass. There are approximately 10 number of upper outliers in April 2020, but it has decreased to 3 in July 2021.
 - Moreover, it is interesting to note that the number of sub-districts in the 3rd and 4th quartile increases across time. 
