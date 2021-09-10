@@ -108,6 +108,247 @@ DKI23845 <- DKI23845 %>% select(0:9)
 DKI23845
 ```
 
+### 4.2 Aspatial Data
+
+The aspatial data is imported using the *read_excel* function. Since data is only required at the sub-district level, data will only be extracted from the "data" sheet.
+
+```{r echo=TRUE, eval=FALSE}
+mar20 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (31 Maret 2020 Pukul 08.00).xlsx", sheet="data")
+
+apr20 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (30 April 2020 Pukul 09.00).xlsx", sheet="data") 
+
+may20 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (31 MEI 2020 Pukul 09.00).xlsx", sheet="data") 
+
+jun20 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (30 Juni 2020 Pukul 09.00).xlsx", sheet="data") 
+
+jul20 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (31 Juli 2020 Pukul 09.00).xlsx", sheet="data") 
+
+aug20 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (31 Agustus 2020 Pukul 10.00).xlsx", sheet="data") 
+
+sep20 <- read_excel("data/aspatial/Standar_Kelurahan_Data_Corona_30_September_2020_Pukul_10_00.xlsx", sheet="data") 
+
+oct20 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (31 Oktober 2020 Pukul 10.00).xlsx", sheet="data") 
+
+nov20 <- read_excel("data/aspatial/Standar_Kelurahan_Data_Corona_30_November_2020_Pukul_10_00.xlsx", sheet="data") 
+
+dec20 <- read_excel("data/aspatial/Standar_Kelurahan_Data_Corona_26_Desember_2020_Pukul_10_00.xlsx", sheet="data") 
+
+jan21 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (30 Januari 2021 Pukul 10.00).xlsx", sheet="data") 
+
+feb21 <- read_excel("data/aspatial/Standar_Kelurahan_Data_Corona_27_Februari_2021_Pukul_10_00.xlsx", sheet="data")
+
+mar21 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (27 Maret 2021 Pukul 10.00).xlsx", sheet="data") 
+
+apr21 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (24 April 2021 Pukul 10.00).xlsx", sheet="data")
+
+may21 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (29 Mei 2021 Pukul 10.00).xlsx", sheet="data") 
+
+jun21 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (26 Juni 2021 Pukul 10.00).xlsx", sheet="data") 
+
+jul21 <- read_excel("data/aspatial/Standar Kelurahan Data Corona (31 Juli 2021 Pukul 10.00).xlsx", sheet="data")
+```
 
 
+### 4.2.1 Extracting Required Columns
 
+In the case of duplicated columns, values from the 2nd column are retained for consistency. There is also a need to create a new column called Month, with values following the respective months.
+
+```{r echo=TRUE, eval=FALSE}
+mar20_filtered <- mar20 %>% 
+  select("ID_KEL"="ID_KEL...2", "Nama_provinsi", "nama_kota", 
+         "nama_kecamatan", "nama_kelurahan", "POSITIF", "Meninggal") %>%
+  mutate("Month"= "Mar20")
+
+apr20_filtered <- apr20 %>% 
+  select("ID_KEL"="ID_KEL...2", "Nama_provinsi", "nama_kota", 
+         "nama_kecamatan", "nama_kelurahan", "POSITIF", "Meninggal") %>%
+  mutate("Month"= "Apr20")
+
+may20_filtered <- may20 %>% 
+  select("ID_KEL"="ID_KEL...2", "Nama_provinsi", "nama_kota", 
+         "nama_kecamatan", "nama_kelurahan", "POSITIF", "Meninggal") %>%
+  mutate("Month"= "May20")
+
+jun20_filtered <- jun20 %>% 
+  select("ID_KEL"="ID_KEL...2", "Nama_provinsi", "nama_kota", 
+         "nama_kecamatan", "nama_kelurahan", "POSITIF", "Meninggal") %>%
+  mutate("Month"= "Jun20")
+
+jul20_filtered <- jul20 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan", 
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...26") %>%
+  mutate("Month"= "Jul20")
+
+aug20_filtered <- aug20 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan", 
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...28") %>%
+  mutate("Month"= "Aug20")
+
+sep20_filtered <- sep20 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan", 
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...29") %>%
+  mutate("Month"= "Sep20")
+
+oct20_filtered <- oct20 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan", 
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...30") %>%
+  mutate("Month"= "Oct20")
+
+nov20_filtered <- nov20 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan", 
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...30") %>%
+  mutate("Month"= "Nov20")
+
+dec20_filtered <- dec20 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan", 
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...30") %>%
+  mutate("Month"= "Dec20")
+
+jan21_filtered <- jan21 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan", 
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...31") %>%
+  mutate("Month"= "Jan21")
+
+feb21_filtered <- feb21 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan", 
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...31") %>%
+  mutate("Month"= "Feb21")
+
+mar21_filtered <- mar21 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan",
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...31") %>%
+  mutate("Month"= "Mar21")
+
+apr21_filtered <- apr21 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan",
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...31") %>%
+  mutate("Month"= "Apr21")
+
+may21_filtered <- may21 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan",
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...31") %>%
+  mutate("Month"= "May21")
+
+jun21_filtered <- jun21 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan",
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...31") %>%
+  mutate("Month"= "Jun21")
+
+jul21_filtered <- jul21 %>% 
+  select("ID_KEL", "Nama_provinsi", "nama_kota", "nama_kecamatan",
+         "nama_kelurahan", "POSITIF", "Meninggal"="Meninggal...31") %>%
+  mutate("Month"= "Jul21")
+```
+
+### 4.2.2 Integrating monthly data
+```{r echo=TRUE, eval=FALSE}
+covidDKI <- bind_rows(mar20_filtered, apr20_filtered, may20_filtered,
+                      jun20_filtered, jul20_filtered, aug20_filtered,
+                      sep20_filtered, oct20_filtered, nov20_filtered,
+                      dec20_filtered, jan21_filtered, feb21_filtered,
+                      mar21_filtered, apr21_filtered, may21_filtered,
+                      jun21_filtered, jul21_filtered)
+
+covidDKI
+```
+
+### 4.2.3 Checking for NA values
+
+Since the value TRUE is returned, it implies that the dataset contains NA values.
+
+```{r echo=TRUE, eval=FALSE}
+sum(is.na(covidDKI)) > 0
+```
+
+The functopm *drop_na* is used to drop the NA values in the dataset.
+
+```{r echo=TRUE, eval=FALSE}
+covidDKI <- drop_na(covidDKI)
+```
+
+### 4.2.4 Data Cleaning
+
+While looking through the cleaned dataset, it can be observed there are rows where the ID_KEL column has non-integer values. These observations are therefore removed.
+
+```{r echo=TRUE, eval=FALSE}
+covidDKI <- covidDKI %>%
+  filter(`ID_KEL` != "LUAR DKI JAKARTA") %>% 
+  filter(`ID_KEL` != "PROSES UPDATE DATA") %>% 
+  filter(`ID_KEL` != "BELUM DIKETAHUI")
+```
+
+Moreover, several data points in the column "nama_kelurahan" has values in both the short and long form. There is therefore a need to convert those values in the short form to the long form to aid later data wrangling. 
+
+```{r echo=TRUE, eval=FALSE}
+covidDKI$nama_kelurahan <- gsub("P\\.", "PULAU", covidDKI$nama_kelurahan)
+```
+
+### 4.2.5 Save the aspatial data as RDS 
+```{r echo=TRUE, eval=FALSE}
+covidDKI_rds <- write_rds(covidDKI, "data/rds/covidDKI.rds")
+```
+
+The RDS aspatial data is now used to proceed with the later analysis.
+
+```{r echo=TRUE, eval=TRUE}
+covidDKI <- read_rds("data/rds/covidDKI.rds")
+```
+
+### 4.2.6 Prepare cumulative monthly data in every column
+
+Since it is required later to plot the cumulative confirmed cases rates and death rates by month, the dataset is pivoted to a wide version. 
+
+```{r echo=TRUE, eval=TRUE}
+covidDKI <- covidDKI %>%
+  group_by(ID_KEL, Nama_provinsi, nama_kota, nama_kecamatan, 
+           nama_kelurahan, Month) %>%
+  summarise(`MENINGGAL` = sum(`Meninggal`), `POSITIF` = sum(`POSITIF`)) %>%
+  ungroup() %>%
+  pivot_wider(names_from=Month, values_from=c(POSITIF, MENINGGAL))
+```
+
+### 4.3 Combine aspatial and geospatial data
+
+The function *right_join()* is used to combine the aspatial and geospatial data.
+
+```{r echo=TRUE, eval=TRUE}
+jakartaDKI <- right_join(covidDKI, DKI23845,
+                         by= c("ID_KEL" = "KODE_DESA"))
+```
+
+### 4.3.1 Checking for NA values
+
+Since the value returned is FALSE, there are no NA vlues in the dataset.
+
+```{r echo=TRUE}
+sum(is.na(jakartaDKI)) > 0
+```
+
+### 4.4 Calculate cumulative confirmed cases and death rates by month
+
+There is a need to generate the total number of confirmed cases and deaths in each area using *rowSums()* and generate 2 new columns based on these values using *mutate()*.
+
+```{r echo=TRUE, eval=TRUE}
+jakartaDKI <- jakartaDKI %>%
+  mutate(`TOTAL POSITIF` = rowSums(.[6:22])) %>%
+  mutate(`TOTAL MENINGGAL` = rowSums(.[23:39]))
+```
+
+The cumulative confirmed cases and death rates (per 10000 population) by month is then calculated.
+
+```{r echo=TRUE, eval=TRUE}
+jakartaDKI_rates <- jakartaDKI 
+
+jakartaDKI_rates[6:22] <- 
+  (jakartaDKI_rates[6:22] / jakartaDKI_rates$JUMLAH_PEN) * 10000
+
+jakartaDKI_rates[23:39] <-
+  (jakartaDKI_rates[23:39] / jakartaDKI_rates$JUMLAH_PEN) * 10000
+```
+
+### 4.5 Calculate Relative Risk
+```{r echo=TRUE, eval=TRUE} 
+jakartaDKI_risk <- jakartaDKI %>%
+  mutate(`RELATIVE_RISK` = (rowSums(.[23:39]) * 100) / 
+           (rowSums(.[23:39]) * jakartaDKI$JUMLAH_PEN))
+```
