@@ -1,0 +1,287 @@
+---
+title: "Hands-on Exercise 2"
+description: |
+  This hands-on exercise covers the handling of geospatial data using sf package.
+author:
+  - name: Genice Goh
+    url: {}
+date: 09-14-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Installing and Loading Libraries
+
+- sf: import, manage and process geospatial data
+- tidyverse: perform data science tasks (i.e. importing, wrangling and visualising data)
+
+```{r echo=TRUE}
+packages = c('sf', 'tidyverse')
+for (p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+
+## Importing Geospatial Data
+
+*st_read()* of sf package is used to import the geospatial data. When the input geospatial data is in shapefile format, there are 2 arguments used:
+
+- dsn: data path
+- layer: shapefile nam
+
+Note: no extension such as .shp, .dbf etc. is needed
+```{r echo=TRUE}
+mpsz = st_read(dsn = "data/geospatial", 
+                  layer = "MP14_SUBZONE_WEB_PL")
+
+cyclingpath = st_read(dsn = "data/geospatial", 
+                         layer = "CyclingPath")
+```
+
+For importing kml files, the complete path and kml path extension is provided
+
+```{r echo=TRUE}
+preschool = st_read("data/geospatial/pre-schools-location-kml.kml")
+```
+
+## Checking contents of Data Frame
+
+### Working with st_geometry()
+
+*st_geometry()* displays basic information of feature class such as type of geometry, geographic extent of features and coordinate system of data
+
+```{r echo=TRUE}
+st_geometry(mpsz)
+```
+
+### Working with glimpse()
+
+*glimpse()* reveals the data type of each field
+
+```{r echo=TRUE}
+glimpse(mpsz)
+```
+
+### Working with head()
+
+*head()* reveals complete information of feature object
+
+```{r echo=TRUE}
+head(mpsz, n=5)
+```
+
+## Plotting Geospatial Data
+
+default *plot()*: multiplot of all attributes, up to a reasonable maximum
+
+```{r echo=TRUE, fig.width = 10, fig.height = 10, fig.align = "center"}
+plot(mpsz)
+```
+
+### Choose to plot only geometry
+
+```{r echo=TRUE, fig.width = 5, fig.height = 5, fig.align = "center"}
+plot(st_geometry(mpsz))
+```
+
+### Choose to plot using a specific attribute
+
+```{r echo=TRUE, fig.width = 5, fig.height = 5, fig.align = "center"}
+plot(mpsz["PLN_AREA_N"])
+```
+
+Note: *plot()* is meant for plotting for a quick look. For high cartographic quality plot, other R packages (e.g. tmap) should be used
+
+## Projection Transformation
+
+Need to ensure that data used for geoprocessing have **same** coordinate systems in order to perform geoprocessing
+
+### Assigning EPSG code to sf dataframe
+
+Coordinate system of source data can be missing or wrongly assigned during the import process
+
+#### Retrieve coordinate reference system 
+
+*st_crs()* of sf package is used to retrieve the coordinate reference system of the sf dataframe
+
+```{r echo=TRUE}
+st_crs(mpsz)
+```
+
+Although mpsz dataframe is projected in SVY21, the EPSG code indicates 9001. This value is wrong because the EPSG code for SVY21 should be 3414. In order to assign the correct EPSG code,*st_set_crs()* of sf package is used:
+
+```{r echo=TRUE}
+mpsz3414 <- st_set_crs(mpsz, 3414)
+
+st_crs(mpsz3414)
+```
+
+### Transforming projection from WGS84 to SVY21
+
+Common to tranform original data from geographic coordinate system to projected coordinate system: geographic coordinate system is **not appropriate** if the analysis uses **distance or/and area measurements**
+
+
+*st_set_crs()* is **not appropriate** and *st_transform()* should be used because there is a need to **reproject** the geographic coordinate system to projected coordinate system
+
+```{r echo=TRUE}
+preschool3414 <- st_transform(preschool, crs=3414)
+```
+
+## Importing and Converting Aspatial Data
+
+### Importing aspatial data
+
+Since the dataset is in csv file format, *read_csv()* will be used to import. The output R object is called a **tibble dataframe**
+
+```{r echo=TRUE}
+listings <- read_csv("data/aspatial/listings.csv")
+```
+
+After importing the data, it is important to examine the data file.
+
+```{r echo=TRUE}
+glimpse(listings)
+```
+
+### Creating a sf dataframe from an aspatial dataframe
+
+*st_as_sf()* of sf package is used to convert **listings** dataframe into a sf dataframe
+
+```{r echo=TRUE}
+listings_sf <- st_as_sf(listings, 
+                       coords = c("longitude", "latitude"),
+                       crs=4326) %>%
+  st_transform(crs = 3414)
+```
+
+- coords argument: column names of x and y coordinates 
+- crs argument: coordinates system in EPSG format
+  - WGS84: EPSG=4326, SVY21: EPSG=3414
+- %>% is used to nest *st_transform()* to transform the newly created sf dataframe into SVY21 projected coordinated system
+
+```{r echo=TRUE}
+glimpse(listings_sf)
+```
+
+## Geoprocessing with sf package
+
+### Buffering
+
+**Scenario**: The authority is planning to upgrade the exiting cycling path. To do so, they need to acquire 5m of reserved land on the both sides of the current cycling path. You are tasked to determine the extend of the land need to be acquired and their total area
+
+*st_buffer()* is used to compute the required 5m buffers around the cycling path
+
+```{r echo=TRUE}
+buffer_cycling <- st_buffer(cyclingpath, 
+                               dist=5, nQuadSegs = 30)
+```
+
+Note: nQuadSegs argument ensures that the buffers are not going to be over generalised.  When the number is large =  more coordinate points will be used to create the buffers. When the number is smaller = less coordinate point will be used to form the buffers
+
+*st_area()* is used to calculate the area of the buffers
+
+```{r echo=TRUE}
+buffer_cycling$AREA <- st_area(buffer_cycling)
+```
+
+*sum()* of Base R to derive the total land involved
+
+```{r echo=TRUE}
+sum(buffer_cycling$AREA)
+```
+
+### Point in polygon count
+
+**Scenario**: A pre-school service group want to find out the numbers of pre-schools in each Planning Subzone
+
+Identify the pre-schools located inside each planning subzone by using *st_intersects()*. Next, use *length()* of Base R to calculate numbers of pre-schools that fall inside each planning subzone
+
+```{r echo=TRUE}
+mpsz3414$`PreSch Count`<- lengths(st_intersects(mpsz3414, preschool3414))
+```
+
+Use *summary()* to check the summary statistics of the newly derived PreSch Count field
+
+```{r echo=TRUE}
+summary(mpsz3414$`PreSch Count`)
+```
+
+*top_n()* of dplyr package is used to list the planning subzone with the most number of pre-schools
+
+```{r echo=TRUE}
+top_n(mpsz3414, 1, `PreSch Count`)
+```
+
+Arguments of *top_n(x, n, wt)*:
+
+- x: data frame.
+- n: number of rows to return for top_n()
+- wt (optional): used for ordering, if not specified, defaults to the last variable in the tbl
+
+
+#### Calculate the density of pre-school by planning subzone
+
+Use *st_area()* to derive the area of each planning subzone
+
+```{r echo=TRUE}
+mpsz3414$Area <- mpsz3414 %>%
+  st_area()
+```
+
+Use *mutate()* of dplyr package to compute the density and create a column based on its values
+
+```{r echo=TRUE}
+mpsz3414 <- mpsz3414 %>%
+  mutate(`PreSch Density` = `PreSch Count`/Area * 1000000)
+```
+
+Note: The unit of measurement of SVY21 is in metre.  When calculating the density, the result will be in numbers of population per square metres. Multiplying by 1000000 is to convert the density to numbers of population per square km
+
+## EDA
+
+### Histogram
+
+Simple code but not the best way of visualisation
+
+```{r echo=TRUE, fig.width = 5, fig.height = 5, fig.align = "center"}
+hist(mpsz3414$`PreSch Density`)
+```
+
+#### Using ggplot2 library
+
+```{r echo=TRUE, fig.width = 5, fig.height = 5, fig.align = "center"}
+ggplot(data=mpsz3414, 
+       aes(x= as.numeric(`PreSch Density`)))+
+  geom_histogram(bins=20, 
+                 color="black", 
+                 fill="light blue") +
+  labs(title = "Are pre-school even distributed in Singapore?",
+       subtitle= "There are many planning sub-zones with a single pre-school, on the other hand, \nthere are two planning sub-zones with at least 20 pre-schools",
+      x = "Pre-school density (per km sq)",
+      y = "Frequency")
+```
+
+Use ggplot2 method to plot a scatterplot showing the relationship between Pre-school Density and Pre-school Count
+
+```{r echo=TRUE, fig.width = 5, fig.height = 5, fig.align = "center"}
+ggplot(data=mpsz3414, 
+       aes(x= as.numeric(`PreSch Density`), 
+           y= as.numeric(`PreSch Count` ))) +
+  geom_point() +
+  xlim(0, 60) + 
+  ylim(0, 60) +
+  labs(x = "Pre-school density (per km sq)", y = "Pre-school count")
+```
+
+Note: limits for both x and y measurement should be the same, fields should be numeric in nature before plotting
+
+
