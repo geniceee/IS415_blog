@@ -2,6 +2,9 @@
 title: "In-class Exercise 3"
 description: |
   In this in-class exercise, we learn about visualising extreme values through the use of percentile, box and rate maps.
+author:
+  - name: Genice Goh
+    url: {}
 date: 08-30-2021
 output:
   distill::distill_article:

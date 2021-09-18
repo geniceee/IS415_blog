@@ -1,7 +1,7 @@
 ---
 title: "In-class Exercise 2"
 description: |
-  In this hands-on exercise, I learn how to handle geospatial data in R using sf package.
+  This is a dummy blog post for testing out how Distill blog works. In this hands-on exercise, I learn how to handle geospatial data in R using sf package.
 author:
   - name: Genice Goh
     url: https://www.linkedin.com/in/genice-goh/
