@@ -1,16 +1,44 @@
 name: "IS415_blog"
-title: "IS415 Blog"
+title: "Geniceee's IS415 Blog"
 description: |
   IS415 Blog
 output_dir: "_site"
 navbar:
   right:
-    - text: "Take home Exercise"
+    - text: "Hands-on Ex"
       menu:
-      - text: "Take home Exercise 1"
+      - text: "Hands-on Ex 2"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-09-14-hands-on-exercise-2/
+      - text: "Hands-on Ex 3"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-09-15-hands-on-exercise-3/
+      - text: "Hands-on Ex 4"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-09-15-hands-on-exercise-4/
+      - text: "Hands-on Ex 5"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-09-15-hands-on-exercise-5/
+      - text: "Hands-on Ex 6"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-09-18-hands-on-exercise-6/
+        
+    - text: "In-class Ex"
+      menu:
+      - text: "In-class Ex 2"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-08-23-in-class-exercise-2/
+      - text: "In-class Ex 3"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-08-30-in-class-exercise-3/
+      - text: "In-class Ex 4"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-09-06-in-class-exercise-4/
+      - text: "In-class Ex 5"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-09-13-in-class-exercise-5/
+      - text: "In-class Ex 6"
         href: 
-    - text: "In-class Exercise"
-      href: index.html
+      
+    - text: "Take-home Ex"
+      menu:
+      - text: "Take-home Ex 1"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-09-10-take-home-exercise-1/
+      - text: "Take home Ex 2"
+        href:
+        
+
     - text: "About"
       href: about.html
 output: distill::distill_article
