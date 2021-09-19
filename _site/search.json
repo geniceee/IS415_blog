@@ -1,11 +1,19 @@
 {
   "articles": [
     {
+      "path": "about.html",
+      "title": "About this blog",
+      "description": "Some additional details about the blog",
+      "author": [],
+      "contents": "\r\n\r\n\r\n\r\n",
+      "last_modified": "2021-09-19T10:16:12+08:00"
+    },
+    {
       "path": "index.html",
       "title": "Genice's IS415 Blog",
       "author": [],
       "contents": "\r\n\r\n\r\n\r\n",
-      "last_modified": "2021-09-19T02:19:36+08:00"
+      "last_modified": "2021-09-19T11:01:55+08:00"
     }
   ],
   "collections": ["posts/posts.json"]

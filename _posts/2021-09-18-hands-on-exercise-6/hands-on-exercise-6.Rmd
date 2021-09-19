@@ -55,7 +55,7 @@ hunan <- left_join(hunan,hunan2012)
 
 We are going to prepare a choropleth map showing the distribution of GDPPC 2012 by using *qtm()* of **tmap** package.
 
-```{r echo=TRUE}
+```{r echo=TRUE, fig.width=10, fig.height=5}
 qtm(hunan, "GDPPC")
 ```
 
@@ -405,7 +405,7 @@ hunan <- left_join(hunan, lag_knn6.res)
 
 Lastly, *qtm()* of **tmap** package is used to plot the GDPPC and lag_sum GDPPC map next to each other for quick comparison. 
 
-```{r echo=TRUE, fig.width=10, fig.height=5}
+```{r echo=TRUE, fig.width=12, fig.height=10}
 gdppc <- qtm(hunan, "GDPPC")
 lag_sum_gdppc <- qtm(hunan, "lag_sum GDPPC")
 tmap_arrange(gdppc, lag_sum_gdppc, asp=1, ncol=2)
