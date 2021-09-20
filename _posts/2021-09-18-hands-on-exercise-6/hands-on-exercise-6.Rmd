@@ -163,21 +163,21 @@ We now have the coordinates of the polygon centroids in a separate data frame!
 
 ### Plotting Queen contiguity based neighbours maps
 
-```{r echo=TRUE}
+```{r echo=TRUE, fig.width=8, fig,height=6}
 plot(hunan$geometry, border="lightgrey")
 plot(wm_q, coords, pch = 19, cex = 0.6, add = TRUE, col= "red")
 ```
 
 ### Plotting Rook contiguity based neighbours maps
 
-```{r echo=TRUE}
+```{r echo=TRUE, fig.width=8, fig.height=6}
 plot(hunan$geometry, border="lightgrey")
 plot(wm_r, coords, pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
 ### Comparing Queen and Rook contiguity based neighbour maps
 
-```{r echo=TRUE}
+```{r echo=TRUE, fig.width=8, fig.height=6}
 par(mfrow=c(1,2))
 plot(hunan$geometry, border="lightgrey")
 plot(wm_q, coords, pch = 19, cex = 0.6, add = TRUE, col= "red", main="Queen Contiguity")
@@ -229,7 +229,7 @@ table(hunan$County, card(wm_d62))
 
 Next, we will plot the distance weight matrix by using the code chunk below.
 
-```{r echo=TRUE}
+```{r echo=TRUE, fig.width=8, fig.height=6}
 plot(hunan$geometry, border="lightgrey")
 plot(wm_d62, coords, add=TRUE)
 plot(k1, coords, add=TRUE, col="red", length=0.08)
@@ -239,7 +239,7 @@ The red lines show the links of 1st nearest neighbours and the black lines show 
 
 Alternatively, we can plot both of them next to each other by using the code chunk below.
 
-```{r echo=TRUE}
+```{r echo=TRUE, fig.width=8, fig.height=6}
 par(mfrow=c(1,2))
 plot(hunan$geometry, border="lightgrey")
 plot(k1, coords, add=TRUE, col="red", length=0.08, main="1st nearest neighbours")
@@ -260,9 +260,9 @@ knn6
 
 ### Plotting adaptive distance weight matrix
 
-We can plot the adapative distance weight matrix using the code chunk below.
+We can plot the adaptive distance weight matrix using the code chunk below.
 
-```{r echo=TRUE}
+```{r echo=TRUE, fig.width=8, fig.height=6}
 plot(hunan$geometry, border="lightgrey")
 plot(knn6, coords, pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
