@@ -156,8 +156,277 @@ tm_shape(mrt_sf) +
 tmap_mode('plot')
 ```
 
+## 5.0 Importing Aspatial Data
 
+Since the aspatial datasets are all in CSV format, *read_csv()* of **readr** package is used to import them. The outputs are **tibble** data frames. 
 
+It is also important to understand the data that we are working with. *glimpse()* of **dplyr** package is therefore used to perform exploratory data analysis. 
+
+```{r echo=TRUE}
+airbnb2019 <- read_csv("data/aspatial/listings_300619.csv")
+airbnb2021 <- read_csv("data/aspatial/listings_290621.csv")
+hotels <- read_csv("data/aspatial/hotels.csv")
+tourism <- read_csv("data/aspatial/tourism.csv")
+```
+
+```{r echo=TRUE}
+glimpse(airbnb2019)
+glimpse(airbnb2021) 
+glimpse(hotels)
+glimpse(tourism) 
+```
+
+From the output messages, we can observe that all 4 data frames have the columns Latitude and Longitude, and the values are in **decimal degrees**. This implies that they are using the **WGS84** referencing system. It is also worthy to note that these 2 columns are in **numeric data types**.
+
+### 5.1 Data Preprocessing
+
+Before proceeding further we will need to conduct data preprocessing to ensure that there are no missing values in the columns Latitude and Longitude for all 4 data frames. 
+
+We are only looking at these 2 columns because the next step covered in Section 5.2 does not allow for missing values. In addition, the respective datasets will be dropped as part of geospatial data wrangling later in Section 6.0. As such, we do not need to care about NA values outside of the 2 above-mentioned columns.
+
+```{r echo=TRUE}
+airbnb2019[is.na(airbnb2019$latitude)!=0,]
+airbnb2019[is.na(airbnb2019$longitude)!=0,]
+
+airbnb2021[is.na(airbnb2021$latitude)!=0,]
+airbnb2021[is.na(airbnb2021$longitude)!=0,]
+
+hotels[is.na(hotels$Lat)!=0,]
+hotels[is.na(hotels$Lng)!=0,]
+
+tourism[is.na(tourism$LONGTITUDE)!=0,]
+tourism[is.na(tourism$LATITUDE)!=0,]
+```
+
+We can see that there is a missing value in the Latitude and Longitude columns for the `tourism` data frame and it belongs to the observation "Cruise from Singapore". Although "Cruise from Singapore" is considered a tourist attraction, it does not belong to a specific location. We will therefore need to remove it.
+
+```{r echo=TRUE}
+tourism <- tourism[!is.na(tourism$LATITUDE),]
+```
+
+We will now use the earlier code chunk to check if the missing value in the `tourism` data frame is removed.
+
+```{r echo=TRUE}
+tourism[is.na(tourism$LONGTITUDE)!=0,]
+tourism[is.na(tourism$LATITUDE)!=0,]
+```
+
+There are no missing values remaining in the `tourism` data frame!!
+
+### 5.2 Converting Aspatial to Geospatial Data
+
+Since these datasets will be used for spatial point pattern analysis later, they will need to be converted to sf data frames to assist further geospatial data wrangling in Section 6.0.
+
+*st_as_sf()* of **sf** package is used to convert the `airbnb2019`, `airbnb2021`, `hotels`, `tourism` data frames into sf data frames.
+
+As discovered in the exploratory data analysis performed earlier, the data frames are using the **WGS84** referencing system. We will thereby need to assign EPSG code of **4326** before transforming the newly created sf data frames into SVY21 projected coordinated system using *st_transform()* of **sf** package.
+
+```{r echo=TRUE}
+airbnb2019_sf <- st_as_sf(airbnb2019,
+                         coords = c("longitude", "latitude"),
+                         crs=4326) %>%
+  st_transform(crs=3414)
+
+airbnb2021_sf <- st_as_sf(airbnb2021,
+                         coords = c("longitude", "latitude"),
+                         crs=4326) %>%
+  st_transform(crs=3414)
+
+hotels_sf <- st_as_sf(hotels,
+                         coords = c("Lng", "Lat"),
+                         crs=4326) %>%
+  st_transform(crs=3414)
+
+tourism_sf <- st_as_sf(tourism,
+                         coords = c("LONGTITUDE", "LATITUDE"),
+                         crs=4326) %>%
+  st_transform(crs=3414)
+```
+
+### 5.3 Visualising Converted Geospatial Data
+
+Similarly, we will want to plot a map to visualise the converted geospatial data to easily get a preliminary look at the spatial patterns. 
+
+```{r echo=TRUE}
+# tmap_mode('view')
+
+tm_shape(airbnb2019_sf) +
+  tm_dots(alpha=0.4,
+          col="blue",
+          size= 0.02) +
+
+tm_shape(hotels_sf) +
+  tm_dots(alpha=0.4,
+          col="red",
+          size= 0.02) +
+
+tm_shape(tourism_sf) +
+  tm_dots(alpha=0.4,
+          col="green",
+          size= 0.02)
+```
+
+```{r}
+tmap_mode('plot')
+```
+
+## 6.0 Geospatial Data Wrangling
+
+We need to perform geospatial data wrangling before we can do spatial point pattern analysis.
+
+### 6.1 Converting sf data frames to sp’s Spatial* class
+
+*as_Spatial()* of **sf** package is used to convert the data from sf data frame to sp’s Spatial* class.
+
+```{r echo=TRUE}
+airbnb2019 <- as_Spatial(airbnb2019_sf)
+airbnb2021 <- as_Spatial(airbnb2021_sf)
+hotels <- as_Spatial(hotels_sf)
+mrt <- as_Spatial(mrt_sf)
+mpsz <- as_Spatial(mpsz_sf)
+sg <- as_Spatial (sg_sf)
+tourism <- as_Spatial(tourism_sf)
+```
+
+### 6.2 Converting Spatial* classes to generic sp format
+
+**spatstat** package requires the data to be in **ppp** object form. To convert Spatial* class to **ppp** object, the Spatial* class needs to be convert into Spatial object first.
+
+```{r echo=TRUE}
+airbnb2019_sp <- as(airbnb2019, "SpatialPoints")
+airbnb2021_sp <- as(airbnb2021, "SpatialPoints")
+hotels_sp <- as(hotels, "SpatialPoints")
+mrt_sp <- as(mrt, "SpatialPoints")
+sg_sp <- as(sg, "SpatialPolygons")
+tourism_sp <- as(tourism, "SpatialPoints")
+```
+
+### 6.3 Converting generic sp format into spatstat’s ppp format
+
+*as.ppp()* of **spatstat** package is used to convert the Spatial object into spatstat’s ppp object format.
+
+```{r echo=TRUE}
+airbnb2019_ppp <- as(airbnb2019_sp, "ppp")
+airbnb2021_ppp <- as(airbnb2021_sp, "ppp")
+hotels_ppp <- as(hotels_sp, "ppp")
+mrt_ppp <- as(mrt_sp, "ppp")
+tourism_ppp <- as(tourism_sp, "ppp")
+```
+
+We can now take a look at the summary statistics of the newly created **ppp** objects.
+
+```{r echo=TRUE}
+summary(airbnb2019_ppp)
+summary(airbnb2021_ppp)
+summary(hotels_ppp)
+summary(mrt_ppp)
+summary(tourism_ppp)
+```
+
+The output messages warn about the **presence of duplicate points** in all 5 **ppp** objects. In spatial point patterns analysis, the presence of duplicates is a significant issue. The statistical methodology used for spatial point patterns processes is based largely on the assumption that the **points cannot be coincident**. We will thereby need to handle the duplicate points.
+
+### 6.4 Handling Duplicate Points
+
+We will use jittering to address the duplicate points problem. Jittering adds a small perturbation to the duplicate points so that they do not occupy the exact same space. 
+
+```{r echo=TRUE}
+airbnb2019_ppp_jit <- rjitter(airbnb2019_ppp, 
+                             retry=TRUE, 
+                             nsim=1, 
+                             drop=TRUE)
+
+airbnb2021_ppp_jit <- rjitter(airbnb2021_ppp, 
+                             retry=TRUE, 
+                             nsim=1, 
+                             drop=TRUE)
+
+hotels_ppp_jit <- rjitter(hotels_ppp, 
+                             retry=TRUE, 
+                             nsim=1, 
+                             drop=TRUE)
+
+mrt_ppp_jit <- rjitter(mrt_ppp, 
+                             retry=TRUE, 
+                             nsim=1, 
+                             drop=TRUE)
+
+tourism_ppp_jit <- rjitter(tourism_ppp, 
+                             retry=TRUE, 
+                             nsim=1, 
+                             drop=TRUE)
+```
+
+We can now check for the presence of duplicate points in the newly created **ppp** objects. 
+
+```{r echo=TRUE}
+any(duplicated(airbnb2019_ppp_jit))
+any(duplicated(airbnb2021_ppp_jit))
+any(duplicated(hotels_ppp_jit))
+any(duplicated(mrt_ppp_jit))
+any(duplicated(tourism_ppp_jit))
+```
+
+There are no more duplicate points in the newly created **ppp** objects!!
+
+### 6.5 Creating an owin object
+
+It is good practice to confine the analysis within a geographical area while conducting spatial point patterns analysis. 
+
+In **spatstat**, an object called **owin** is specially designed to represent this polygonal region.
+
+`sg_sp` is the CoastalOutline of Singapore. This will be the observation window we will be using.
+
+```{r echo=TRUE}
+sg_owin <- as(sg_sp, "owin")
+
+plot(sg_owin)
+```
+
+### 6.6 Combine Spatial Points Events and owin object
+
+We are going to extract the following spatial points events located within Singapore:
+
+- Airbnb 2019 Listings
+- Airbnb 2021 Listings
+- Hotels
+- Mrt Stations
+- Tourist Attractions
+
+```{r echo=TRUE}
+airbnb2019_SG_ppp = airbnb2019_ppp_jit[sg_owin]
+airbnb2021_SG_ppp = airbnb2021_ppp_jit[sg_owin]
+hotels_SG_ppp = hotels_ppp_jit[sg_owin]
+mrt_SG_ppp = mrt_ppp_jit[sg_owin]
+tourism_SG_ppp = tourism_ppp_jit[sg_owin]
+```
+
+We will now use *plot()* to visualise the newly derived **ppp** objects which are constrained within the Singapore boundary.
+
+```{r echo=TRUE, fig.width=10, fig.height=10}
+par(mfrow=c(3,2))
+
+plot(airbnb2019_SG_ppp)
+plot(airbnb2021_SG_ppp)
+plot(hotels_SG_ppp)
+plot(mrt_SG_ppp)
+plot(tourism_SG_ppp)
+```
+
+### 6.7 Convert unit of measurement for ppp objects
+
+We will need to convert the unit of measurement for the **ppp** objects from meters to kilometers to aid exploratory spatial data analysis covered in the next few sections. 
+
+This is because the output kernel density values are expected to be very small, since the default unit of measurement for SVY21 is in meters. As such, the density values are actually computed in “number of points per square meter”.
+
+*rescale()* of **Base R** helps us achieve this goal.
+
+```{r echo=TRUE}
+airbnb2019_SG_ppp_km <- rescale(airbnb2019_SG_ppp, 1000, "km")
+airbnb2021_SG_ppp_km <- rescale(airbnb2021_SG_ppp, 1000, "km")
+hotels_SG_ppp_km <- rescale(hotels_SG_ppp, 1000, "km")
+mrt_SG_ppp_km <- rescale(mrt_SG_ppp, 1000, "km")
+tourism_SG_ppp_km <- rescale(tourism_SG_ppp, 1000, "km")
+```
 
 
 
