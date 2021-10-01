@@ -1028,3 +1028,84 @@ l_est(airbnb2021_dt_ppp_en, "L_est_en_airbnb2021")
 l_est(airbnb2019_dt_ppp_sh, "L_est_sh_airbnb2019")
 l_est(airbnb2021_dt_ppp_sh, "L_est_sh_airbnb2021")
 ```
+
+#### Performing Complete Spatial Randomness (CSR) Test 
+
+The hypotheses and test are as follows:
+
+- **Ho**: The distribution of Airbnb 2019/2021 listings by room type (i.e. private room, entire home/apt, shared room) are randomly distributed.
+- **H1**: The distribution of Airbnb 2019/2021 listings by room type (i.e. private room, entire home/apt, shared room) are **NOT** randomly distributed.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.01 (i.e. at 90% confident interval).
+
+```{r echo=TRUE}
+l_est.csr <- function(ppp, title) {
+  set.seed(1234)
+  
+  sim <- envelope(ppp, Lest, nsim = 99, rank = 1, global=TRUE)
+  
+  plot(sim, . - r ~ r, xlab="d", ylab="L(d)-r", main=title)
+}
+```
+
+```{r echo=TRUE, fig.width=15, fig.height=10}
+par(mfrow=c(3,2))
+
+l_est.csr(airbnb2019_dt_ppp_pr, "L_est_csr_pr_airbnb2019")
+l_est.csr(airbnb2021_dt_ppp_pr, "L_est_csr_pr_airbnb2021")
+
+l_est.csr(airbnb2019_dt_ppp_en, "L_est_csr_en_airbnb2019")
+l_est.csr(airbnb2021_dt_ppp_en, "L_est_csr_en_airbnb2021")
+
+l_est.csr(airbnb2019_dt_ppp_sh, "L_est_csr_sh_airbnb2019")
+l_est.csr(airbnb2021_dt_ppp_sh, "L_est_csr_sh_airbnb2021")
+```
+
+#### Private Room Airbnb 2019 and 2021 Listings
+
+- For the years 2019 and 2021, the majority of the observed (black) line does not fall within the envelope of the 90% confidence interval.
+- We can therefore **reject** the null hypothesis that the distribution of `private room` Airbnb 2019/2021 listings is randomly distributed.
+- We can also infer that spatial clustering is statistically significant from ~20m and ~10m for  `private room` Airbnb 2019 and 2021 listings respectively.
+- Moreover, it is interesting to note that the curve reaches L(r) - r above 300 in the year 2021 while in 2019, the curve only reaches slightly about 250. This implies that the clustering pattern is greater in the year 2021 as compared to 2019.
+
+#### Entire Home/Apt 2019 and 2021 Listings
+
+- For the years 2019 and 2021, the majority of the observed (black) line does not fall within the envelope of the 90% confidence interval.
+- We can therefore **reject** the null hypothesis that the distribution of `entire home/apt` Airbnb 2019/2021 listings is randomly distributed.
+- We can also infer that spatial clustering is statistically significant from ~8m and ~10m for  `entire home/apt` Airbnb 2019 and 2021 listings. respectively.
+- It is also interesting to note that both curves reach L(r) - r  ~400. This shows that clustering patterns are similar for both years.
+
+#### Shared Room Airbnb 2019 and 2021 Listings
+
+- For the years 2019 and 2021, the observed (black) line falls within the envelope of the 90% confidence interval.
+- We therefore **cannot reject** the null hypothesis that the distribution of `shared room` Airbnb 2019/2021 listings is randomly distributed.
+- Additionally, it is interesting to note that the curve only reaches L(r) - r ~400 in the year 2019 while in 2021, the curve reaches ~480. This implies that the clustering pattern is greater in the year 2019 as compared to 2021.
+
+## 9.0 Conclusion
+
+### 9.1 Section A
+
+After conducting exploratory spatial data analysis, we observed that the kernel density maps of `hotels`, `MRT services` and `tourist attractions` show similar patterns to the kernel density map of `Airbnb 2019 listings`, where they are highly concentrated in the south of the Study area.
+
+However, this is insufficient to conclude that the distribution of `Airbnb 2019 listings` are affected by the various location factors. As such, second-order spatial point pattern analysis is conducted in order for us statistically verify it.
+
+The second-order spatial point patterns analysis reveals that the distribution of `Airbnb 2019 listings` and `MRT services` is **spatially independent**, while the distribution of `Airbnb 2019 listings` and `hotels` as well as `tourist attractions` are **NOT spatially independent**.  
+
+As such, we can conclude that the distribution of Airbnb listings in 2019 are affected by location factors such as hotels and tourist attractions, but not MRT services.
+
+### 9.2 Section B
+
+After conducting exploratory spatial data analysis, we observed that the distribution of `private room` Airbnb listings decreases during the period of 2019-2021. This is in comparison to the distributions of `entire home/apt` and `shared room` Airbnb listings, which is seen to increase during the period of 2019-2021.
+
+However, this is insufficient to conclude that the distribution of Airbnb listings are affected by COVID-19. As such, second-order spatial point pattern analysis is conducted in order for us statistically verify it.
+
+The second-order spatial point patterns analysis reveals that the distributions of `private room` and `entire home/apt` Airbnb listings in both 2019 and 2021 are not randomly distributed. This is in comparison to the distribution of `shared room` Airbnb listings in both 2019 and 2021, where they are found to be randomly distributed. 
+
+It was also interesting to observe that the clustering patterns of `private room` Airbnb listings are greater in 2021 than in 2019. This is in comparison to `entire home/apt` Airbnb listings, where clustering patterns are similar for both years.
+
+Therefore, we can conclude that COVID-19 has caused some impact to the distribution of Airbnb listings, where distribution of `private room` Airbnb listings has increased during the period of 2019-2021. The distributions of Airbnb listings with other room types show little change.
+
+## 10.0 References
+
+- Altaweel Mark (2017, October 27). Density Mapping With GIS. Retrieved from: https://www.gislounge.com/density-mapping/
+- RDocumentation (n.d.). subset.ppp: Subset of Point Pattern Satisfying A Condition. Retrieved from: https://www.rdocumentation.org/packages/spatstat/versions/1.56-1/topics/subset.ppp
