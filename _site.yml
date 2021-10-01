@@ -38,7 +38,7 @@ navbar:
       - text: "Take-home Ex 1"
         href: https://geniceee-is415-blog.netlify.app/posts/2021-09-10-take-home-exercise-1/
       - text: "Take home Ex 2"
-        href:
+        href: site/posts/2021-09-25-take-home-exercise-2/index.html
 
     - text: "About"
       href: about.html
