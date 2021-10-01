@@ -428,5 +428,280 @@ mrt_SG_ppp_km <- rescale(mrt_SG_ppp, 1000, "km")
 tourism_SG_ppp_km <- rescale(tourism_SG_ppp, 1000, "km")
 ```
 
+## 7.0 Section A: Airbnb Distribution in 2019
 
+We will be investigating if the distribution of Airbnb listings as at June 2019 are affected by location factors such as being near to existing hotels, MRT services and tourist attractions.
 
+### 7.1 Exploratory Spatial Data Analysis
+
+We will be computing the kernel density estimations and plotting the respective kernel density maps for `Airbnb 2019 listings`, `hotels`, `MRT services` and `tourist attractions`.
+
+### 7.1.1 Kernel Density Estimations
+
+*density()* of **spatstat** package is used to compute the kernel density estimations and it has the following configurations:
+
+- sigma: smoothing bandwidth selection used, bandwidth selection can be automatic, fixed or adaptive.
+- kernel: smoothing kernel used, methods include gaussian (default), epanechnikov, quartic or disc.
+- edge: value stating if the intensity estimate is corrected for edge effect bias, with the default being `FALSE`.
+
+We will be making us of the *bw.ppl()* automatic bandwidth method because it tends to produce more appropriate values when the pattern consists predominantly of tight clusters. This is consistent with our goal of spotting which areas have high density of the respective event points.
+
+In addition, the **Gaussian** kernel function is used in the calculations, such that the respective event points which are located further away from a reference point will be given less weight.
+
+```{r echo=TRUE}
+bw_ppl <- function(df) {
+  density(df, 
+          sigma=bw.ppl, 
+          edge=TRUE, 
+          kernel="gaussian")
+}
+```
+
+### 7.1.2 Deriving Kernel Density Maps
+
+```{r echo=TRUE, fig.width=16, fig.height=10}
+par(mfrow=c(2, 2))
+
+plot(bw_ppl(airbnb2019_SG_ppp_km), main="kde_airbnb2019_ppl")
+
+plot(bw_ppl(hotels_SG_ppp_km), main="kde_hotels_ppl")
+
+plot(bw_ppl(mrt_SG_ppp_km), main="kde_mrt_ppl")
+
+plot(bw_ppl(tourism_SG_ppp_km), main="kde_tourism_ppl")
+```
+
+Next, we will use *intensity()* of **spatstat** package to reveal the density of the respective event points within the Singapore boundary. 
+
+```{r echo=TRUE, fig.width=16, fig.height=10}
+intensity(airbnb2019_SG_ppp_km)
+intensity(hotels_SG_ppp_km)
+intensity(mrt_SG_ppp_km)
+intensity(tourism_SG_ppp_km)
+```
+
+The output message reveals that `Airbnb 2019 listings` has the highest density of 11.1 units per km square. This is followed by 0.563 units per km square, 0.247 units per km square and 0.140 unit per km square for `hotels`, `MRT services` and `tourist attractions` respectively.
+
+### 7.1.3 Plotting Kernel Density Maps using tmap
+
+Before we can visualise the kernel density maps using **tmap** package, we will need to convert the KDE output into a **RasterLayer** object. However, there is no way for direct conversion. We therefore have to convert the KDE output into a **Gridded KDE output** before converting it into a **RasterLayer** object.
+
+It is also worthy to note that we are not using the KDE outputs calculated using the rescaled ppp objects in Section 6.7. This is because the raster maps will be plotted using the projected coordinate system SVY21, which uses meters.
+
+```{r echo=TRUE}
+kde_airbnb2019_ppl_raster <- bw_ppl(airbnb2019_SG_ppp) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_airbnb2021_ppl_raster <- bw_ppl(airbnb2021_SG_ppp) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_hotels_ppl_raster <- bw_ppl(hotels_SG_ppp) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_mrt_ppl_raster <- bw_ppl(mrt_SG_ppp) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_tourism_ppl_raster <- bw_ppl(tourism_SG_ppp) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_airbnb2019_ppl_raster
+kde_airbnb2021_ppl_raster
+kde_hotels_ppl_raster
+kde_mrt_ppl_raster
+kde_tourism_ppl_raster
+```
+
+From the output messages, we can observe that the coordinate reference systems for all **RasterLayer** objects are **NA**. We have to assign them coordinate reference systems in order to plot them using **tmap** package.
+
+```{r echo=TRUE}
+projection(kde_airbnb2019_ppl_raster) <- CRS("+init=EPSG:3414")
+projection(kde_airbnb2021_ppl_raster) <- CRS("+init=EPSG:3414")
+projection(kde_hotels_ppl_raster) <- CRS("+init=EPSG:3414")
+projection(kde_mrt_ppl_raster) <- CRS("+init=EPSG:3414")
+projection(kde_tourism_ppl_raster) <- CRS("+init=EPSG:3414")
+```
+
+We will check whether the coordinate reference system property is filled in for all **RasterLayer** objects.
+
+```{r echo=TRUE}
+kde_airbnb2019_ppl_raster
+kde_airbnb2021_ppl_raster
+kde_hotels_ppl_raster
+kde_mrt_ppl_raster
+kde_tourism_ppl_raster
+```
+
+As we can observe the output messages, the coordinate reference system field is now completed! We can now proceed to visualise the **RasterLayer** objects using **tmap**.
+
+```{r echo=TRUE}
+raster_map <- function(raster_layer, title){
+  tmap_mode('view')
+  
+  tm_basemap("OpenStreetMap") + 
+    tm_shape(raster_layer) + 
+      tm_raster("v", title=title, palette="Reds", alpha=0.7)
+}
+```
+
+```{r echo=TRUE}
+raster_map(kde_airbnb2019_ppl_raster, "KDE Map of Airbnb 2019 Listings")
+```
+
+```{r}
+tmap_mode('plot')
+```
+
+```{r echo=TRUE}
+raster_map(kde_hotels_ppl_raster, "KDE Map of Hotels")
+```
+
+```{r}
+tmap_mode('plot')
+```
+
+```{r echo=TRUE}
+raster_map(kde_mrt_ppl_raster, "KDE Map of MRT Services")
+```
+
+```{r}
+tmap_mode('plot')
+```
+
+```{r echo=TRUE}
+raster_map(kde_tourism_ppl_raster, "KDE Map of Tourist Attractions")
+```
+
+```{r}
+tmap_mode('plot')
+```
+
+The following can be observed from the plots above:
+
+- The kernel density map of `Airbnb 2019 listings` highlights the location where the listings are concentrated but shows little about the patterns or larger-scale associations between the points.
+- The kernel density maps of `hotels` and `tourist attractions` shows some suggestion of localised clustering within the south portion of the study area.
+- The kernel density map of `MRT services` also shows some suggestion of localised clustering within the south, north-east and north-west of the study area. 
+
+In fact, we can see that the kernel density maps of `hotels`, `MRT services` and `tourist attractions` show similar patterns to the kernel density map of `Airbnb 2019 listings`, where they are highly concentrated in the southern portion of the study area. This can be due to a few reasons:
+
+- The southern part of Singapore is considered the downtown area, so it would make sense that there is a higher concentration of hotels, MRT services and tourist attractions.
+- Airbnb listings may be deliberately located in this area such that they are in close proximity to MRT services and tourist attractions, thereby posing convenience. 
+  
+#### Kernel Density Map vs Point Map
+
+Advantage of kernel density maps over point maps:
+
+- Kernel density estimates smooth point estimates to create a surface of density estimates in a given area. 
+- This is in comparison to point maps, which shows the actual event points located within the study area.
+
+### 7.2 Second-order Spatial Point Pattern Analysis
+
+In order to statistically verify if the distribution of Airbnb Listings in 2019 are affected by the various location factors, second-order spatial point pattern analysis will be conducted.
+
+### 7.2.1 Extract Point Data in Study Area
+
+Since most event points are observed to be concentrated around the `Downtown Core` planning area, we are only going to use data points within it for the second-order spatial point pattern analysis. 
+
+We will first need to extract the `Downtown Core` planning area from the `mpsz` **Spatial* class** object before converting it into a **Spatial** object and subsequently an **owin** object.
+
+```{r echo=TRUE}
+dt_owin <- mpsz[mpsz@data$PLN_AREA_N == "DOWNTOWN CORE",] %>%
+  as("SpatialPolygons") %>%
+  as("owin")
+```
+
+We can now proceed to extract the data points within the `Downtown Core` planning area for the analysis.
+
+```{r echo=TRUE}
+airbnb2019_dt_ppp = airbnb2019_SG_ppp[dt_owin]
+hotels_dt_ppp = hotels_SG_ppp[dt_owin]
+mrt_dt_ppp = mrt_SG_ppp[dt_owin]
+tourism_dt_ppp = tourism_SG_ppp[dt_owin]
+```
+
+### 7.2.2 Combine Point Patterns
+
+*superimpose()* of **spatstat** package is used to combine multiple point patterns together, so that multi-type point patterns analysis can be performed. 
+
+```{r echo=TRUE}
+airbnb2019_factors <- superimpose(airbnb2019=airbnb2019_dt_ppp,
+                                  hotels=hotels_dt_ppp, 
+                                  mrt=mrt_dt_ppp, 
+                                  tourism=tourism_dt_ppp)
+```
+
+### 7.2.3 Cross L-Function
+
+The Cross L-Function is a normalised Cross K-Function, which measures the number of events found up to a given distance of any particular event.
+
+### Airbnb 2019 Listings and Hotels/MRT Services/Tourist Attractions
+
+We will analyse the relationship of `Airbnb 2019 listings` and the various event points (i.e. `hotels`, `MRT services` and `tourist attractions`) by using *Lcross()* of **spatstat** package.
+
+```{r echo=TRUE}
+l_cross <- function(pts, mark1, mark2) {
+  l_cross <- Lcross(pts, i=mark1, j=mark2, correction='border')
+  
+  plot(l_cross, . -r ~ r, xlab = "distance(m)")
+}
+```
+
+#### Computing Cross L-Function Estimate
+
+```{r echo=TRUE, fig.width=15, fig.height=10}
+par(mfrow=c(2,2))
+
+l_cross(airbnb2019_factors, "airbnb2019", "hotels")
+l_cross(airbnb2019_factors, "airbnb2019", "mrt")
+l_cross(airbnb2019_factors, "airbnb2019", "tourism")
+```
+
+#### Performing Complete Spatial Randomness (CSR) Test 
+
+The hypothesis and test are as follows:
+
+- **Ho**: The distribution of `Airbnb 2019 listings` and `hotels`/ `MRT services`/ `tourist attractions` are spatially independent.
+- **H1**: The distribution of `Airbnb 2019 listings` and `hotels`/ `MRT services`/ `tourist attractions` are **NOT** spatially independent.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.01 (i.e. at 90% confident interval).
+
+```{r echo=TRUE}
+l_cross.csr <- function(pts, mark1, mark2, title) {
+  set.seed(1234)
+  
+  sim <- envelope(pts, Lcross, i=mark1, j=mark2, correction='border', nsim=99)
+  
+  plot(sim, . -r ~ r, xlab = "distance(m)", main=title)
+}
+```
+
+```{r echo=TRUE, fig.width=12, fig.height=8}
+par(mfrow=c(2,2))
+
+l_cross.csr(airbnb2019_factors, "airbnb2019", "hotels", 
+            "Airbnb2019 Listings & Hotels")
+
+l_cross.csr(airbnb2019_factors, "airbnb2019", "mrt",
+            "Airbnb2019 Listings & MRT services")
+
+l_cross.csr(airbnb2019_factors, "airbnb2019", "tourism",
+            "Airbnb2019 Listings & Tourist Attractions")
+```
+
+#### Relationship between Airbnb 2019 Listings and Hotels
+
+- The distribution of `Airbnb 2019 listings` and `hotels` are not **spatially independent**. The null hypothesis is **rejected** because the majority of the observed (black) line does not fall within the envelope of the 90% confidence interval.
+- We can also infer that spatial clustering is statistically significant from 0m to ~170m and spatial dispersion is statistically significant from ~175m to ~310m between `Airbnb 2019 listings` and `hotels`.
+
+#### Relationship between Airbnb 2019 Listings and MRT services
+
+- The distribution of `Airbnb 2019 listings` and `MRT services` are not **spatially dependent**. The null hypothesis is not **rejected** because the observed (black) line falls within the envelope of the 90% confidence interval.
+
+#### Relationship between Airbnb 2019 Listings and Tourist Attractions
+
+- The distribution of `Airbnb 2019 listings` and `tourist attractions` are not **spatially independent**. The null hypothesis is **rejected** because the observed (black) line does not fall within the envelope of the 90% confidence interval.
+- We can also infer that spatial dispersion is statistically significant from 0m to ~345m between `Airbnb 2019 listings` and `tourist attractions`.
