@@ -833,3 +833,198 @@ intensity(airbnb2021_SG_ppp_ho_km)
 ```
 
 The output message reveals that `private room` Airbnb listings in 2021 has the highest density of 2.73 units per km square. This is followed by 2.43 units per km square, 0.264 units per km square and 0.231 units per km square for `entire home/apt` Airbnb listings in 2021, `hotel` Airbnb listings in 2021 and `shared room` Airbnb listings in 2021 respectively.
+
+### 8.2.3 Plotting Kernel Density Maps using tmap
+
+Similarly, we will need to convert the respective KDE outputs into **Gridded KDE outputs** before converting them into **RasterLayer** objects.
+
+```{r echo=TRUE}
+kde_airbnb2019_ppl_pr_raster <- bw_ppl(airbnb2019_SG_ppp_pr) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_airbnb2019_ppl_en_raster <- bw_ppl(airbnb2019_SG_ppp_en) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_airbnb2019_ppl_sh_raster <- bw_ppl(airbnb2019_SG_ppp_sh) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_airbnb2021_ppl_pr_raster <- bw_ppl(airbnb2021_SG_ppp_pr) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_airbnb2021_ppl_en_raster <- bw_ppl(airbnb2021_SG_ppp_en) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_airbnb2021_ppl_sh_raster <- bw_ppl(airbnb2021_SG_ppp_sh) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_airbnb2021_ppl_ho_raster <- bw_ppl(airbnb2021_SG_ppp_ho) %>%
+  as.SpatialGridDataFrame.im() %>%
+  raster()
+
+kde_airbnb2019_ppl_pr_raster
+kde_airbnb2019_ppl_en_raster
+kde_airbnb2019_ppl_sh_raster
+
+kde_airbnb2021_ppl_pr_raster
+kde_airbnb2021_ppl_en_raster
+kde_airbnb2021_ppl_sh_raster
+kde_airbnb2021_ppl_ho_raster
+```
+
+From the output messages, we can observe that the coordinate reference systems for all **RasterLayer** objects are **NA**. We have to assign them coordinate reference systems in order to plot them using **tmap** package.
+
+```{r echo=TRUE}
+projection(kde_airbnb2019_ppl_pr_raster) <- CRS("+init=EPSG:3414")
+projection(kde_airbnb2019_ppl_en_raster) <- CRS("+init=EPSG:3414")
+projection(kde_airbnb2019_ppl_sh_raster) <- CRS("+init=EPSG:3414")
+
+projection(kde_airbnb2021_ppl_pr_raster) <- CRS("+init=EPSG:3414")
+projection(kde_airbnb2021_ppl_en_raster) <- CRS("+init=EPSG:3414")
+projection(kde_airbnb2021_ppl_sh_raster) <- CRS("+init=EPSG:3414")
+projection(kde_airbnb2021_ppl_ho_raster) <- CRS("+init=EPSG:3414")
+```
+
+We will check whether the coordinate reference system property is filled in for all **RasterLayer** objects.
+
+```{r echo=TRUE}
+kde_airbnb2019_ppl_pr_raster
+kde_airbnb2019_ppl_en_raster
+kde_airbnb2019_ppl_sh_raster
+
+kde_airbnb2021_ppl_pr_raster
+kde_airbnb2021_ppl_en_raster
+kde_airbnb2021_ppl_sh_raster
+kde_airbnb2021_ppl_ho_raster
+```
+
+As we can observe the output messages, the coordinate reference system field is now completed! We can now proceed to visualise the **RasterLayer** objects using **tmap**.
+
+We will not be plotting the raster map for `hotel` Airbnb 2021 listings because there is no such room type in Airbnb 2019 listings, so there is no point for comparison.
+
+```{r echo=TRUE}
+raster_compare <- function(df1, title1, df2, title2){
+  tmap_mode('view')
+  
+  tm_basemap("OpenStreetMap") + 
+    tm_shape(df1) + 
+      tm_raster("v", title=title1, alpha=0.5, palette="Reds") +
+    tm_shape(df2) + 
+      tm_raster("v", title=title2, alpha=0.45, palette="Blues")
+}
+```
+
+```{r echo=TRUE}
+raster_compare(kde_airbnb2019_ppl_raster, "Airbnb2019 Listings",
+               kde_airbnb2021_ppl_raster, "Airbnb2021 Listings")
+```
+
+```{r}
+tmap_mode('plot')
+```
+The following can be observed from the plotted raster maps:
+
+- Shades of red represent Airbnb Listings in 2019 while shades of blue represent Airbnb Listings in 2021.
+- Both Airbnb Listings in 2019 and 2021 are concentrated in the south of the study area.
+- The concentration of Airbnb listings in 2021 is lower than the concentration of Airbnb listings in 2019, which can be seen from the fewer areas of blue as compared to the shades of red. 
+
+```{r echo=TRUE}
+raster_compare(kde_airbnb2019_ppl_pr_raster, "Airbnb2019 Private Rooms",
+               kde_airbnb2021_ppl_pr_raster, "Airbnb2021 Private Rooms")
+```
+
+```{r}
+tmap_mode('plot')
+```
+The following can be observed from the plotted raster maps:
+
+- Shades of red represent `private room` Airbnb Listings in 2019 while shades of blue represent `private room` Airbnb Listings in 2021.
+- We can see that the concentration of `private room` Airbnb listings is generally low for both years.
+- Both `private room` Airbnb listings in 2019 and 2021 are concentrated in the south.
+- The concentration of `private room` Airbnb listings in 2021 is lower than the concentration of `private room` Airbnb listings in 2019, which can be seen from the fewer areas of blue as compared to the shades of red. 
+
+```{r echo=TRUE}
+raster_compare(kde_airbnb2019_ppl_en_raster, "Airbnb2019 Entire Home/Apt",
+               kde_airbnb2021_ppl_en_raster, "Airbnb2021 Entire Home/Apt")
+```
+
+```{r}
+tmap_mode('plot')
+```
+The following can be observed from the plotted raster maps:
+
+- Shades of red represent `entire home/apt` Airbnb Listings in 2019 while shades of blue represent `entire home/apt` Airbnb Listings in 2021.
+- We can see that there is considerable concentration of `entire home/apt` Airbnb listings for both years.
+- Both `entire home/apt` Airbnb listings in 2019 and 2021 are concentrated in the south.
+- The concentration of `entire home/apt` Airbnb listings in 2021 looks to be higher than the concentration of `entire home/apt` Airbnb listings in 2019, which can be seen from the fewer areas of red as compared to the shades of blue. 
+
+```{r echo=TRUE}
+raster_compare(kde_airbnb2019_ppl_sh_raster, "Airbnb2019 Shared Rooms",
+               kde_airbnb2021_ppl_sh_raster, "Airbnb2021 Shared Rooms")
+```
+
+```{r}
+tmap_mode('plot')
+```
+The following can be observed from the plotted raster maps:
+
+- Shades of red represent `shared room` Airbnb Listings in 2019 while shades of blue represent `shared room` Airbnb Listings in 2021.
+- Both `shared room` Airbnb listings in 2019 and 2021 are concentrated in the south.
+- The concentration of `shared room` Airbnb listings in 2021 is observed to be higher than the concentration of `shared room` Airbnb listings in 2019, which can be seen from the fewer areas of red as compared to the shades of blue. 
+
+### 8.3 Second-order Spatial Point Pattern Analysis
+
+We cannot conclude that the distribution of Airbnb listings by room types are impacted by COVID-19 from the kernel density maps alone. We therefore need to employ second-order spatial point patterns analysis to draw statistical conclusions. 
+
+### 8.3.1 Extract Point Data in Study Area
+
+Since most Airbnb 2019 and 2021 listings are concentrated around the `Downtown Core` planning area, we are only going to extract data points within it for the second-order spatial point pattern analysis. 
+
+```{r echo=TRUE}
+airbnb2019_dt_ppp_pr = airbnb2019_SG_ppp_pr[dt_owin]
+airbnb2019_dt_ppp_en = airbnb2019_SG_ppp_en[dt_owin]
+airbnb2019_dt_ppp_sh = airbnb2019_SG_ppp_sh[dt_owin]
+
+airbnb2021_dt_ppp_pr = airbnb2021_SG_ppp_pr[dt_owin]
+airbnb2021_dt_ppp_en = airbnb2021_SG_ppp_en[dt_owin]
+airbnb2021_dt_ppp_sh = airbnb2021_SG_ppp_sh[dt_owin]
+airbnb2021_dt_ppp_ho = airbnb2021_SG_ppp_ho[dt_owin]
+```
+
+### 8.3.2 L-Function
+
+The L-Function is a normalised K-Function, which measures the number of events found up to a given distance of any particular event.
+
+### Airbnb 2019 and 2021 Listings
+
+We will analyse the relationship of Airbnb listings by room type in 2019 and 2021 by using *Lest()* of **spatstat** package.
+
+Similarly, we will not be doing second-order analysis for `hotel` Airbnb 2021 listingsbecause there is no such room type in Airbnb 2019 listings, so there is no point for comparison.
+
+```{r echo=TRUE}
+l_est <- function(ppp, title) {
+  est <- Lest(ppp, correction = "Ripley")
+  
+  plot(est, . -r ~ r, ylab= "L(d)-r", xlab = "d(m)", main=title)
+}
+```
+
+#### Computing Cross L-Function Estimate
+
+```{r echo=TRUE, fig.width=15, fig.height=10}
+par(mfrow=c(3,2))
+
+l_est(airbnb2019_dt_ppp_pr, "L_est_pr_airbnb2019")
+l_est(airbnb2021_dt_ppp_pr, "L_est_pr_airbnb2021")
+
+l_est(airbnb2019_dt_ppp_en, "L_est_en_airbnb2019")
+l_est(airbnb2021_dt_ppp_en, "L_est_en_airbnb2021")
+
+l_est(airbnb2019_dt_ppp_sh, "L_est_sh_airbnb2019")
+l_est(airbnb2021_dt_ppp_sh, "L_est_sh_airbnb2021")
+```
