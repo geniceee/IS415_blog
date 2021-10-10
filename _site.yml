@@ -21,6 +21,8 @@ navbar:
         href: https://geniceee-is415-blog.netlify.app/posts/2021-09-18-hands-on-exercise-6/
       - text: "Hands-on Ex 7"
         href: https://geniceee-is415-blog.netlify.app/posts/2021-10-03-hands-on-exercise-7/
+      - text: "Hands-on Ex 8"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-10-10-hands-on-exercise-8/
         
     - text: "In-class Ex"
       menu:
