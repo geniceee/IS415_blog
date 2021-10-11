@@ -13,7 +13,7 @@ output:
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE)
 ```
 
 ## The Analytical Question
@@ -26,15 +26,15 @@ In this hands-on exercise, we are interested to delineate Shan State, Myanmar in
 
 The following packages will be used for this analysis:
 
-- sf, rgdal, spdep: used for handling of geospatial data
-- tidyverse (readr, ggplot2, dplyr): mainly used for wrangling attribute data 
-- tmap: used to prepare cartographic quality chropleth maps
-- coorplot, ggpubr, heatmaply: used for ,ultivariate data visualisation and analysis
-- cluster: used to perform cluster analysis
+- **sf**, **rgdal**, **spdep**: used for handling of geospatial data
+- **tidyverse** (**readr**, **ggplot2**, **dplyr**): mainly used for wrangling attribute data 
+- **tmap**: used to prepare cartographic quality chropleth maps
+- **coorplot**, **ggpubr**, **heatmaply**: used for multivariate data visualisation and analysis
+- **cluster**, **ClustGeo**: used to perform cluster analysis
 
 
 ```{r echo=TRUE}
-packages = c('rgdal', 'spdep', 'tmap', 'sf', 'ggpubr', 'cluster', 'factoextra', 'NbClust', 'heatmaply', 'corrplot', 'psych', 'tidyverse')
+packages = c('rgdal', 'spdep', 'tmap', 'sf', 'ggpubr', 'cluster', 'ClustGeo', 'factoextra', 'NbClust', 'heatmaply', 'corrplot', 'psych', 'tidyverse')
 
 for (p in packages){
   if(!require(p, character.only = T)){
@@ -81,7 +81,7 @@ There are a total of **11 fields** and **55 observations** in the **tibble data.
 
 ### Derive new variables
 
-The unit of measurement of the variables is the **number of households**. Using these values directly will result in bias due to the underlying total number of households. In general, townships with higher total number of households will also have higher number of households owning radio, TV, etc.
+The unit of measurement of the variables is the **number of households**. Using these values directly will be biased due to the underlying total number of households. In general, townships with higher total number of households will also have higher number of households owning radio, TV, etc.
 
 In order to overcome this problem, we will derive the penetration rate of each ICT variable.
 
@@ -113,14 +113,14 @@ Notice that six new fields have been added into the data.frame: `RADIO_PR`, `TV_
 
 We can plot the distribution of the variables by using the appropriate EDA techniques.
 
-**Histogram** is useful to identify the overall distribution of the data values (i.e. left skew, right skew or normal distribution).
+**Histogram** is useful to identify the **overall distribution** of the data values (i.e. left skew, right skew or normal distribution).
 
 ```{r echo=TRUE}
 ggplot(data=ict_derived, aes(x=`RADIO`)) +
   geom_histogram(bins=20, color="black", fill="light blue")
 ```
 
-**Boxplot** is useful to detect if there are outliers.
+**Boxplot** is useful to detect if there are **outliers**.
 
 ```{r echo=TRUE}
 ggplot(data=ict_derived, aes(x=`RADIO`)) +
@@ -141,8 +141,8 @@ ggplot(data=ict_derived, aes(x=`RADIO_PR`)) +
 
 What can be observed from the histogram and boxplot?
 
-- The distribution of radio penetration rates is slightly right skewed.
-- The median radio penetration rate is approximately 210, and there is 1 outlier with a value of approximately 480.
+- The distribution of radio penetration rates is slightly **right skewed**.
+- The **median** radio penetration rate is approximately 210, and there is **1 outlier** with a value of approximately 480.
 
 We can also plot multiple histograms to reveal the distribution of the selected variables in the `ict_derived` data.frame. We will first create the individual histograms before grouping them together using *ggarange()* of **ggpubr** package
 
@@ -192,7 +192,7 @@ ggarrange(radio, tv, llphone, mphone, computer, internet,
 
 ### Joining geospatial data with aspatial data
 
-Before we can prepare the choropleth map, we need to combine both the geospatial data object and aspatial data.frame object. This will be performed by using *left_join()* of **dplyr** package. 
+Before we can prepare the choropleth map, we need to combine both the geospatial data object and aspatial data.frame object. This will be performed using *left_join()* of **dplyr** package. 
 
 The `shan_sf` simple feature data.frame will be used as the base data object and the `ict_derived` data.frame will be used as the join table. The unique identifier used to join both data objects is `TS_PCODE`.
 
@@ -210,7 +210,7 @@ To have a quick look at the distribution of radio penetration rate of Shan State
 qtm(shan_sf, "RADIO_PR")
 ```
 
-In order to reveal that the number of households with radio is bias to the underlying total number of households at the township level, we will plot these two choropleth maps side by side.
+In order to reveal that the number of households with radio is biased to the underlying total number of households at the township level, we will plot these two choropleth maps side by side.
 
 ```{r echo=TRUE, fig.width=10, fig.height=8}
 TT_HOUSEHOLDS.map <- tm_shape(shan_sf) + 
@@ -355,13 +355,13 @@ ggarrange(r, s, z,
           nrow = 1)
 ```
 
-Notice that the overall distribution of the clustering variables will change after data standardisation. Hence, it is advisable **NOT** to perform data standardisation if the **values rang**e of the clustering variables are **not very large**.
+Notice that the overall distribution of the clustering variables will change after data standardisation. Hence, it is advisable **NOT** to perform data standardisation if the **values range** of the clustering variables are **not very large**.
 
 ## Computing proximity matrix
 
 Many packages provide functions to calculate distance matrix in R. We will compute the proximity matrix by using *dist()* of **R**.
 
-*dist()* supports six distance proximity calculations: euclidean (default), maximum, manhattan, canberra, binary and minkowski.
+*dist()* supports six distance proximity calculations: **euclidean (default)**, **maximum**, **manhattan**, **canberra**, **binary** and **minkowski**.
 
 ```{r echo=TRUE}
 proxmat <- dist(shan_ict, method = 'euclidean')
@@ -371,7 +371,7 @@ proxmat
 
 There are several packages that provide hierarchical clustering functions in R. In this hands-on exercise, *hclust()* of **R stats** will be used.
 
-*hclust()* employs **agglomeration** method to compute the cluster. 8 clustering algorithms are supported: ward.D, ward.D2, single, complete, average(UPGMA), mcquitty(WPGMA), median(WPGMC) and centroid(UPGMC).
+*hclust()* employs **agglomeration** method to compute the cluster. 8 clustering algorithms are supported: **ward.D**, **ward.D2**, **single**, **complete**, **average(UPGMA)**, **mcquitty(WPGMA)**, **median(WPGMC)** and **centroid(UPGMC)**.
 
 The code chunk below performs hierarchical clustering analysis using **ward.D** method. The hierarchical clustering output is stored in an object of class **hclust** which describes the tree produced by the clustering process.
 
@@ -391,7 +391,7 @@ One of the challenges in performing hierarchical clustering is to identify **str
 
 It functions like *hclust()*, however, with *agnes()* you can also get the **agglomerative coefficient**, which measures the **amount of clustering structure** found (values closer to 1 suggest strong clustering structure).
 
-The agglomerative coefficients of the hierarchical clustering algorithms will now be computed.
+The agglomerative coefficients of all hierarchical clustering algorithms will now be computed.
 
 ```{r echo=TRUE}
 m <- c( "average", "single", "complete", "ward")
@@ -404,7 +404,7 @@ ac <- function(x) {
 map_dbl(m, ac)
 ```
 
-With reference to the output above, we can see that Ward’s method provides the **strongest clustering structure** among the four methods assessed. Hence, in the subsequent analysis, only Ward’s method will be used.
+With reference to the output above, we can see that **Ward**’s method provides the **strongest clustering structure** among the four methods assessed. Hence, in the subsequent analysis, only Ward’s method will be used.
 
 ## Determining Optimal Clusters
 
@@ -418,7 +418,7 @@ There are 3 commonly used methods to determine the optimal clusters:
 
 ### Gap Statistic Method
 
-The gap statistic compares the total within intra-cluster variation for different values of k with their expected values under null reference distribution of the data. The estimate of the optimal clusters will be the value that yields the largest gap statistic. This means that the clustering structure is far away from the random uniform distribution of points.
+The gap statistic compares the total within intra-cluster variation for different values of k with their expected values under null reference distribution of the data. The estimate of the optimal clusters will be the **value** that yields **the largest gap statistic**. This means that the clustering structure is far away from the random uniform distribution of points.
 
 To compute the gap statistic, *clusGap()* of **cluster** package will be used. Note that *hcut()* is from the **factoextra** package.
 
@@ -492,9 +492,9 @@ heatmaply(normalize(shan_ict_mat),
 
 ## Mapping the clusters formed
 
-After close examination of the dendrogram above, we have decided to retain five clusters.
+After close examination of the dendrogram above, we have decided to retain 6 clusters.
 
-*cutree()* of **R Base** will be used to derive a 5-cluster model. The output `groups` is a list object.
+*cutree()* of **R Base** will be used to derive a 6-cluster model. The output `groups` is a list object.
 
 ```{r echo=TRUE}
 groups <- as.factor(cutree(hclust_ward, k=6))
