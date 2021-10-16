@@ -1,0 +1,576 @@
+---
+title: "Hands-on Exercise 9"
+description: |
+  In this hands-on exercise, we learn how to calibrate geographically weighted regression models using GWmodel package of R.
+author:
+  - name: Genice Goh
+    url: {}
+date: 10-16-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Overview
+
+Geographically weighted regression (GWR) is a spatial statistical technique that takes **non-stationary variables** into consideration (e.g., climate; demographic factors; physical environment characteristics) and models the **local relationships** between these **independent variables** and an outcome of interest (i.e. **dependent variable**). 
+
+In this hands-on exercise, we learn how to build hedonic pricing models using GWR methods. The **dependent variable** is the resale prices of condominium in 2015. The **independent variables** are divided into either structural and locational.
+
+## Installing and Loading Packages
+
+The following packages will be used for this analysis:
+
+- **sf**, **spdep**: used for handling of geospatial data
+- **tidyverse** (**readr**, **ggplot2**, **dplyr**): mainly used for wrangling attribute data 
+- **tmap**: used to prepare cartographic quality choropleth maps
+- **coorplot**, **ggpubr**: used for multivariate data visualisation and analysis
+- **olsrr**: used to build ordinary least squares regression models
+- **GWmodel**: used for geospatial statistical modelling
+
+```{r echo=TRUE}
+packages = c('olsrr', 'corrplot', 'ggpubr', 'sf', 'spdep', 'GWmodel', 'tmap', 'tidyverse')
+for (p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+
+## Short Note about GWmodel
+
+GWmodel package provides a collection of localised spatial statistical methods:
+
+- GW summary statistics
+- GW principal components analysis
+- GW discriminant analysis
+- Various forms of GW regression
+
+Some of which are provided in basic and robust (outlier resistant) forms. Commonly, outputs or parameters of the GWmodel are mapped to provide a useful exploratory tool, which can often precede (and direct) a more traditional or sophisticated statistical analysis.
+
+# Geospatial Data
+
+## Importing Geospatial Data
+
+*st_read()* of sf package is used to import the `MP_SUBZONE_WEB_PL` shapefile. 
+
+```{r echo=TRUE}
+mpsz = st_read(dsn = "data/geospatial", layer = "MP14_SUBZONE_WEB_PL")
+```
+
+The output `mpsz` is a **simple feature** object. We can observe that the geometry type is **multipolygon**. It is also important to note that `mpsz` **simple feature** object does not have EPSG information.
+
+## Updating CRS Information
+
+*st_transform()* of **sf** package is used to update `mpsz` with the correct ESPG code (i.e. 3414).
+
+```{r echo=TRUE}
+mpsz_svy21 <- st_transform(mpsz, 3414)
+```
+
+After transforming the projection metadata, *st_crs()* of **sf** package is used to verify the projection of the newly transformed `mpsz_svy21`.
+
+```{r echo=TRUE}
+st_crs(mpsz_svy21)
+```
+
+We can now see that the EPSG code is indicated as 3414.
+
+Next, we reveal the extent of `mpsz_svy21` using *st_bbox()* of **sf** package.
+
+```{r echo=TRUE}
+st_bbox(mpsz_svy21) #view extent
+```
+
+# Aspatial Data 
+
+## Importing Aspatial Data
+
+*read_csv()* of **readr** package is used to import condo_resale_2015.csv into R as a tibble data frame called `condo_resale`.
+
+```{r echo=TRUE}
+condo_resale = read_csv("data/aspatial/Condo_resale_2015.csv")
+```
+
+It is important for us to examine if the data file has been imported correctly and *glimpse()* will be used to display the data structure.
+
+```{r echo=TRUE}
+glimpse(condo_resale)
+```
+
+```{r echo=TRUE}
+head(condo_resale$LONGITUDE) #see the data in XCOORD column
+head(condo_resale$LATITUDE) #see the data in YCOORD column
+```
+
+```{r echo=TRUE}
+summary(condo_resale)
+```
+
+## Converting aspatial data frame to sf object
+
+The `condo_resale` data frame is currently **aspatial**. We will convert it to a sf object using *st_as_sf()* of **sf** package.
+
+*st_transform()* of **sf** package is then used to convert the coordinates from WGS84 (i.e. CRS:4326) to SVY21 (i.e. CRS=3414).
+
+```{r echo=TRUE}
+condo_resale_sf <- st_as_sf(condo_resale,
+                            coords = c("LONGITUDE", "LATITUDE"),
+                            crs=4326) %>%
+  st_transform(crs=3414)
+
+head(condo_resale_sf)
+```
+
+# EDA
+
+## EDA using statistical graphs
+
+We can plot the distribution of `SELLING_PRICE` using the appropriate Exploratory Data Analysis (EDA) techniques as shown below.
+
+```{r echo=TRUE}
+ggplot(data=condo_resale_sf, aes(x=`SELLING_PRICE`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+```
+
+The figure above reveals a **right skewed** distribution. This means that more condominium units were transacted at **relative lower prices**.
+
+Statistically, the skewed dsitribution can be **normalised** using **log transformation**. *mutate()* of **dplyr** package is used to derive a new variable called `LOG_SELLING_PRICE` using a log transformation on the variable `SELLING_PRICE`.
+
+```{r echo=TRUE}
+condo_resale_sf <- condo_resale_sf %>%
+  mutate(`LOG_SELLING_PRICE` = log(SELLING_PRICE))
+```
+
+We can now plot the distribution of `LOG_SELLING_PRICE`.
+
+```{r echo=TRUE}
+ggplot(data=condo_resale_sf, aes(x=`LOG_SELLING_PRICE`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+```
+
+### Display multiple distributions of variables
+
+We will now draw multiple histograms (also known as **treltis plot**) to show multiple distributions of the variables. This is done using *ggarrange()* of **ggpubr** package.
+
+```{r echo=TRUE, fig.width=10, fig.height=8}
+AREA_SQM <- ggplot(data=condo_resale_sf, 
+                   aes(x= `AREA_SQM`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+AGE <- ggplot(data=condo_resale_sf, 
+              aes(x= `AGE`)) +
+  geom_histogram(bins=20, color="black", fill="light blue") 
+
+PROX_CBD <- ggplot(data=condo_resale_sf, 
+                   aes(x= `PROX_CBD`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_CHILDCARE <- ggplot(data=condo_resale_sf, 
+                         aes(x= `PROX_CHILDCARE`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_ELDERLYCARE <- ggplot(data=condo_resale_sf, 
+                           aes(x= `PROX_ELDERLYCARE`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_URA_GROWTH_AREA <- ggplot(data=condo_resale_sf, 
+                               aes(x= `PROX_URA_GROWTH_AREA`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_HAWKER_MARKET <- ggplot(data=condo_resale_sf, 
+                             aes(x= `PROX_HAWKER_MARKET`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_KINDERGARTEN <- ggplot(data=condo_resale_sf, 
+                            aes(x= `PROX_KINDERGARTEN`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_MRT <- ggplot(data=condo_resale_sf, 
+                   aes(x= `PROX_MRT`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_PARK <- ggplot(data=condo_resale_sf, 
+                    aes(x= `PROX_PARK`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_PRIMARY_SCH <- ggplot(data=condo_resale_sf, 
+                           aes(x= `PROX_PRIMARY_SCH`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_TOP_PRIMARY_SCH <- ggplot(data=condo_resale_sf,
+                               aes(x=`PROX_TOP_PRIMARY_SCH`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+ggarrange(AREA_SQM, AGE, PROX_CBD, PROX_CHILDCARE, PROX_ELDERLYCARE, PROX_URA_GROWTH_AREA, PROX_HAWKER_MARKET, PROX_KINDERGARTEN, PROX_MRT, PROX_PARK, PROX_PRIMARY_SCH, PROX_TOP_PRIMARY_SCH,  ncol = 3, nrow = 4)
+```
+
+## EDA using statistical point map
+
+Lastly, we want to reveal the geospatial distribution condominium resale prices in Singapore using the **tmap** package.
+
+- Note that tm_dots() is used instead of tm_bubbles().
+- The *set.zoom.limits* argument of *tm_view()* sets the minimum and maximum zoom level to 11 and 14 respectively.
+
+```{r echo=TRUE}
+tmap_mode("plot")
+
+tm_shape(mpsz_svy21)+
+  tm_polygons() +
+tm_shape(condo_resale_sf) +  
+  tm_dots(col = "SELLING_PRICE",
+          alpha = 0.6,
+          style="quantile") +
+  tm_view(set.zoom.limits = c(11,14))
+```
+
+# Hedonic Pricing Modelling in R
+
+In this section, we learn how to building hedonic pricing models for condominium resale units using *lm()* of **R base**.
+
+## Simple Linear Regression Method
+
+We will first build a **simple linear regression model** using `SELLING_PRICE` as the **dependent variable** and `AREA_SQM` as the **independent variable**.
+
+```{r echo=TRUE}
+condo_slr <- lm(formula=SELLING_PRICE ~ AREA_SQM, data = condo_resale_sf)
+```
+
+The functions *summary()* and *anova()* can be used to obtain a summary and analysis of variance table of the results. The generic accessor functions coefficients, effects, fitted.values and residuals extract various useful features of the value returned by **lm**.
+
+```{r echo=TRUE}
+summary(condo_slr)
+```
+
+The output report reveals that the `SELLING_PRICE` can be explained using the formula: $y = -258121.1 + 14719x1$
+
+The **R-squared** of **0.4518** reveals that the simple regression model built is able to **explain about 45% of the resale prices**.
+
+Since p-value is much smaller than 0.0001, we will **reject** the null hypothesis that mean is a good estimator of SELLING_PRICE. This will allow us to infer that **simple linear regression model** above is a **good estimator** of `SELLING_PRICE`.
+
+### Individual Parameter Test 
+
+The **coefficients** section of the report reveals that the p-values of both the estimates of the `Intercept` and `ARA_SQM` are **smaller than 0.001**. In view of this, the null hypothesis of the B0 and B1 are equal to 0 will be **rejected**. As a results, we will be able to infer that the B0 and B1 are **good parameter estimates**.
+
+To visualise the best fit curve on a scatterplot, we can incorporate *lm()* as a method function in ggplot’s geometry.
+
+```{r echo=TRUE}
+ggplot(data=condo_resale_sf,  
+       aes(x=`AREA_SQM`, y=`SELLING_PRICE`)) +
+  geom_point() +
+  geom_smooth(method = lm)
+```
+
+We can observe that there are **a few statistical outliers** with relatively high selling prices.
+
+## Multiple Linear Regression Method
+
+### Visualising the relationships of the independent variables
+
+Before building a multiple regression model, it is important to ensure that the **independent variables** used are **not highly correlated to each other**. If these highly correlated independent variables are used in building a regression model, the quality of the model will be compromised. This phenomenon is known as **multi-collinearity** in statistics.
+
+**Correlation matrix** is commonly used to visualise the relationships between the independent variables. Beside the *pairs()* of R, there are many packages support the display of a correlation matrix. In this section, the **corrplot** package will be used to plot a scatterplot matrix of the relationship between the independent variables.
+
+```{r echo=TRUE, fig.width=12, fig.height=10}
+corrplot(cor(condo_resale[, 5:23]), diag = FALSE, order = "AOE",
+         tl.pos = "td", tl.cex = 0.5, method = "number", type = "upper")
+```
+
+Matrix reordering is very important for mining the hidden structure and pattern in the matrix. There are four methods in corrplot (parameter order), named **“AOE”**, **“FPC”**, **“hclust”**, **“alphabet”**. In the code chunk above, **alphabet** order is used. It **orders the variables alphabetically**.
+
+From the scatterplot matrix, it is clear that `Freehold` is **highly correlated** to `LEASE_99YEAR`. In view of this, it is wiser to only include either one of them in the subsequent model building. As a result, `LEASE_99YEAR` is **excluded** in the subsequent model building.
+
+## Building a hedonic pricing model using multiple linear regression method
+
+*lm()* is used to calibrate the multiple linear regression model.
+
+```{r echo=TRUE}
+condo_mlr <- lm(formula = SELLING_PRICE ~ AREA_SQM + AGE  + PROX_CBD + PROX_CHILDCARE + PROX_ELDERLYCARE  + PROX_URA_GROWTH_AREA + PROX_HAWKER_MARKET  + PROX_KINDERGARTEN  + PROX_MRT  + PROX_PARK  + PROX_PRIMARY_SCH + PROX_TOP_PRIMARY_SCH + PROX_SHOPPING_MALL  + PROX_SUPERMARKET + PROX_BUS_STOP  + NO_Of_UNITS + FAMILY_FRIENDLY + FREEHOLD, data=condo_resale_sf)
+
+summary(condo_mlr)
+```
+
+We can observe that not all the independent variables are statistically significant. We will therefore revise the model by removing those variables which are not statistically significant.
+
+```{r echo=TRUE}
+condo_mlr1 <- lm(formula = SELLING_PRICE ~ AREA_SQM + AGE  + PROX_CBD + PROX_CHILDCARE + PROX_ELDERLYCARE  + PROX_URA_GROWTH_AREA + PROX_MRT  + PROX_PARK  + PROX_PRIMARY_SCH + PROX_SHOPPING_MALL  + PROX_BUS_STOP  + NO_Of_UNITS + FAMILY_FRIENDLY + FREEHOLD, data=condo_resale_sf)
+
+ols_regress(condo_mlr1)
+```
+
+### Checking for multicolinearity
+
+In this section, we will be introduced to **olsrr** which is specially programmed for performing OLS regression. It provides a collection of very useful methods for building better multiple linear regression models:
+
+- Comprehensive regression output
+- Residual diagnostics
+- Measures of influence
+- Heteroskedasticity tests
+- Collinearity diagnostics
+- Model fit assessment
+- Variable contribution assessment
+- Variable selection procedures
+
+*ols_vif_tol()* of **olsrr** package is used to test if there are signs of **multi-collinearity**.
+
+```{r echo=TRUE}
+ols_vif_tol(condo_mlr1)
+```
+
+Since the **VIF** of the independent variables are **less than 10**, we can safely conclude that there are **no signs of multi-collinearity** among the independent variables.
+
+### Test for Non-Linearity
+
+In multiple linear regression, it is important for us to **test the assumptions** about the **linearity** and **normality** of the relationship between dependent and independent variables.
+
+*ols_plot_resid_fit()* of **olsrr** package is used to perform **linearity** assumption test.
+
+```{r echo=TRUE}
+ols_plot_resid_fit(condo_mlr1)
+```
+
+The figure above reveals that **most of the data points are scattered around the 0 line**, we can therefore safely conclude that the relationships between the dependent variable and independent variables are **linear**.
+
+### Test for Normality Assumption
+
+Lastly,*ols_plot_resid_hist()* of **olsrr** package to perform **normality** assumption test.
+
+```{r echo=TRUE}
+ols_plot_resid_hist(condo_mlr1)
+```
+
+The figure reveals that the residuals of the multiple linear regression model (i.e. condo_mlr1) resembles **normal distribution**.
+
+If formal statistical test methods are preferred, *ols_test_normality()* of **olsrr** package can also be used.
+
+```{r echo=TRUE}
+ols_test_normality(condo_mlr1)
+```
+
+The summary table above reveals that the p-values of the four tests are way smaller than the alpha value of 0.05. Hence we will **reject** the null hypothesis that the residuals do NOT resemble normal distribution.
+
+### Testing for Spatial Autocorrelation
+
+The hedonic model that we are building uses **geographically referenced attributes**, hence it is also important for us to **visualise the residuals** of the hedonic pricing model.
+
+In order to perform spatial autocorrelation test, we need to convert the `condo_resale_sf` **simple feature** object into a **SpatialPointsDataFrame**.
+
+First, we will export the residuals of the hedonic pricing model and save it as a data frame.
+
+```{r echo=TRUE}
+mlr_output <- as.data.frame(condo_mlr1$residuals)
+```
+
+Next, we will join the newly created data frame with the `condo_resale.sf` object.
+
+```{r echo=TRUE}
+condo_resale_res_sf <- cbind(condo_resale_sf, 
+                             condo_mlr1$residuals) %>%
+  rename(`MLR_RES` = `condo_mlr1.residuals`)
+```
+
+Next, we will convert the `condo_resale_res_sf` **simple feature** object into a **SpatialPointsDataFrame**. This is required because the **spdep** package can only process sp conformed spatial data objects.
+
+```{r echo=TRUE}
+condo_resale_sp <- as_Spatial(condo_resale_res_sf)
+condo_resale_sp
+```
+Next, we will use tmap package to visualise the distribution of the residuals.
+
+```{r echo=TRUE}
+tmap_mode("plot")
+
+tm_shape(mpsz_svy21)+
+  tm_polygons(alpha = 0.4) +
+tm_shape(condo_resale_res_sf) +  
+  tm_dots(col = "MLR_RES",
+          alpha = 0.6,
+          style="quantile") +
+  tm_view(set.zoom.limits = c(11,14))
+```
+
+The figure above reveals that there are **signs of spatial autocorrelation**.
+
+To prove that our observation is true, the **Moran’s I test** will be performed.
+
+First, we will compute the distance-based weight matrix by using *dnearneigh()* function of **spdep**.
+
+```{r echo=TRUE}
+nb <- dnearneigh(coordinates(condo_resale_sp), 0, 1500, longlat = FALSE)
+
+summary(nb)
+```
+
+Next, *nb2listw()* of **spdep** packge will be used to convert the output neighbours lists (i.e. nb) into a spatial weights.
+
+```{r echo=TRUE}
+nb_lw <- nb2listw(nb, style = 'W')
+
+summary(nb_lw)
+```
+
+Next, *lm.morantest()* of **spdep** package will be used to perform Moran’s I test for residual spatial autocorrelation
+
+```{r echo=TRUE}
+lm.morantest(condo_mlr1, nb_lw)
+```
+
+The Global Moran’s I test for residual spatial autocorrelation shows that its **p-value is less than the alpha value of 0.05**. We will thus **reject** the null hypothesis that the residuals are randomly distributed.
+
+Since the Observed Global Moran I = 0.1424418 which is **greater than 0**, we can infer than the residuals resemble **cluster distribution**.
+
+# Building Hedonic Pricing Models using GWmodel
+
+In this section, we learn how to model hedonic pricing using both the fixed and adaptive bandwidth schemes.
+
+## Building Fixed Bandwidth GWR Model
+
+### Computing fixed bandwith
+
+*bw.gwr()* of **GWModel** package is used to determine the **optimal fixed bandwidth** to use in the model. Notice that the argument *adaptive* is set to `FALSE`, which indicates that we are interested to compute the fixed bandwidth.
+
+There are two possible approaches to determine the stopping rule: 
+
+- CV cross-validation approach
+- AIC corrected (AICc) approach
+
+We define the stopping rule using the *approach* argument.
+
+```{r echo=TRUE}
+bw_fixed <- bw.gwr(formula = SELLING_PRICE ~ AREA_SQM + AGE  + PROX_CBD +
+                  PROX_CHILDCARE + PROX_ELDERLYCARE  + PROX_URA_GROWTH_AREA +
+                  PROX_MRT  + PROX_PARK  + PROX_PRIMARY_SCH +
+                  PROX_SHOPPING_MALL  + PROX_BUS_STOP  + NO_Of_UNITS +
+                  FAMILY_FRIENDLY + FREEHOLD, data=condo_resale_sp,
+                  approach="CV", kernel="gaussian", adaptive=FALSE,
+                  longlat=FALSE)
+```
+
+The result shows that the recommended bandwidth is 971.3398 metres. The unit of measurement is in metres because the projection coordinated system is SVY21, which uses metres.
+
+### GWModel method - fixed bandwidth
+
+We can now calibrate the gwr model using fixed bandwidth and gaussian kernel.
+
+```{r echo=TRUE}
+gwr_fixed <- gwr.basic(formula = SELLING_PRICE ~ AREA_SQM + AGE  + PROX_CBD +
+                       PROX_CHILDCARE + PROX_ELDERLYCARE  +
+                       PROX_URA_GROWTH_AREA + PROX_MRT  + PROX_PARK  +
+                       PROX_PRIMARY_SCH + PROX_SHOPPING_MALL  + PROX_BUS_STOP 
+                       + NO_Of_UNITS + FAMILY_FRIENDLY + FREEHOLD,
+                       data=condo_resale_sp, bw=bw_fixed, kernel = 'gaussian',
+                       longlat = FALSE)
+```
+
+The output is saved in a list of class “gwrm”.
+
+```{r echo=TRUE}
+gwr_fixed
+```
+
+The report shows that the **adjusted r-square** of the **gwr** is **0.8430418** which is significantly **better** than the **global multiple linear regression model** of **0.6472**.
+
+## Building Adaptive Bandwidth GWR Model
+
+In this section, we will calibrate the gwr-based hedonic pricing model using the adaptive bandwidth approach.
+
+### Computing the adaptive bandwidth
+
+Similar to the earlier section, we will first use *bw.gwr()* to determine the recommended data point to use.
+
+The code chunk used looks very similar to the one used to compute the fixed bandwidth except that the **adaptive argument has changed to `TRUE`**.
+
+```{r echo=TRUE}
+bw_adaptive <- bw.gwr(formula = SELLING_PRICE ~ AREA_SQM + AGE  + PROX_CBD +
+                      PROX_CHILDCARE + PROX_ELDERLYCARE  + PROX_URA_GROWTH_AREA
+                      + PROX_MRT  + PROX_PARK  + PROX_PRIMARY_SCH +
+                      PROX_SHOPPING_MALL  + PROX_BUS_STOP  + NO_Of_UNITS +
+                      FAMILY_FRIENDLY + FREEHOLD, data=condo_resale_sp,
+                      approach="CV", kernel="gaussian", adaptive=TRUE,
+                      longlat=FALSE)
+```
+
+The result shows that the **30** is the **recommended data points** to be used.
+
+### Constructing the adaptive bandwidth gwr model
+
+We can now go ahead to calibrate the gwr-based hedonic pricing model by using adaptive bandwidth and gaussian kernel.
+
+```{r echo=TRUE}
+gwr_adaptive <- gwr.basic(formula = SELLING_PRICE ~ AREA_SQM + AGE  + PROX_CBD
+                          + PROX_CHILDCARE + PROX_ELDERLYCARE  +
+                          PROX_URA_GROWTH_AREA + PROX_MRT  + PROX_PARK  +
+                          PROX_PRIMARY_SCH + PROX_SHOPPING_MALL  +
+                          PROX_BUS_STOP  + NO_Of_UNITS + FAMILY_FRIENDLY +
+                          FREEHOLD, data=condo_resale_sp, bw=bw_adaptive,
+                          kernel = 'gaussian', adaptive=TRUE, longlat = FALSE)
+
+gwr_adaptive
+```
+
+The report shows that the **adjusted r-square** of the **gwr** is **0.8561185** which is significantly **better** than the **global multiple linear regression model** of **0.6472**.
+
+# Visualising GWR Output
+
+In addition to regression residuals, the output feature class table includes fields for observed and predicted y values, condition number, Local R2, residuals, and explanatory variable coefficients and standard errors:
+
+- Condition Number: evaluates **local collinearity**. In the presence of strong local collinearity, results become unstable. Results associated with condition numbers **larger than 30** may be **unreliable**.
+- Local R2: these values **range between 0.0 and 1.0** and indicate **how well the local regression model fits observed y values**. 
+  - **Very low values** indicate the local model is performing **poorly**. 
+  - Mapping the Local R2 values to see where GWR predicts well and poorly may provide clues about important variables that may be missing from the regression model.
+- Predicted: estimated (or fitted) y values computed by GWR.
+- Residuals: to obtain the residual values, the fitted y values are subtracted from the observed y values. Standardized residuals have a mean of zero and a standard deviation of 1. 
+  - A cold-to-hot rendered map of standardized residuals can be produce by using these values.
+- Coefficient Standard Error: measure the reliability of each coefficient estimate. **Confidence** in those estimates are **higher** when **standard errors are small** in relation to the actual coefficient values. **Large standard errors** may indicate problems with **local collinearity**.
+
+They are all stored in a **SpatialPointsDataFrame** or **SpatialPolygonsDataFrame** object integrated with fit.points, GWR coefficient estimates, y value, predicted values, coefficient standard errors and t-values in its “data” slot in an object called **SDF** of the output list.
+
+## Converting SDF into sf data frame
+
+To visualise the fields in **SDF**, we need to first covert it into **sf** data frame.
+
+```{r echo=TRUE}
+condo_resale_sf_adaptive <- st_as_sf(gwr_adaptive$SDF) %>%
+  st_transform(crs=3414)
+```
+
+```{r echo=TRUE}
+gwr_adaptive_output <- as.data.frame(gwr_adaptive$SDF)
+
+condo_resale_sf_adaptive <- cbind(condo_resale_res_sf,
+                                  as.matrix(gwr_adaptive_output))
+
+glimpse(condo_resale_sf_adaptive)
+```
+## Visualising local R2
+
+```{r echo=TRUE}
+tmap_mode("plot")
+
+tm_shape(mpsz_svy21)+
+  tm_polygons(alpha = 0.1) +
+tm_shape(condo_resale_sf_adaptive) +  
+  tm_dots(col = "Local_R2",
+          border.col = "gray60",
+          border.lwd = 1) +
+  tm_view(set.zoom.limits = c(11,14))
+```
+
+## By URA Plannign Region
+
+```{r echo=TRUE}
+tmap_mode("plot")
+
+tm_shape(mpsz_svy21[mpsz_svy21$REGION_N=="CENTRAL REGION", ])+
+  tm_polygons()+
+tm_shape(condo_resale_sf_adaptive) + 
+  tm_bubbles(col = "Local_R2",
+           size = 0.15,
+           border.col = "gray60",
+           border.lwd = 1)
+```
