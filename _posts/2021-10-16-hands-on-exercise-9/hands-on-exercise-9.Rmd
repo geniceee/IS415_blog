@@ -112,6 +112,8 @@ head(condo_resale$LATITUDE) #see the data in YCOORD column
 summary(condo_resale)
 ```
 
+We can observe that `FAMILY_FRIENDLY`, `FREEHOLD` and `LEASEHOLD_99YR` are dummy variables (non-continuous). It's best practice that we don't use them if possible.
+
 ## Converting aspatial data frame to sf object
 
 The `condo_resale` data frame is currently **aspatial**. We will convert it to a sf object using *st_as_sf()* of **sf** package.
@@ -218,7 +220,8 @@ Lastly, we want to reveal the geospatial distribution condominium resale prices 
 - The *set.zoom.limits* argument of *tm_view()* sets the minimum and maximum zoom level to 11 and 14 respectively.
 
 ```{r echo=TRUE}
-tmap_mode("plot")
+tmap_mode("view")
+tmap_options(check.and.fix = TRUE)
 
 tm_shape(mpsz_svy21)+
   tm_polygons() +
@@ -227,6 +230,10 @@ tm_shape(condo_resale_sf) +
           alpha = 0.6,
           style="quantile") +
   tm_view(set.zoom.limits = c(11,14))
+```
+
+```{r}
+tmap_mode('plot')
 ```
 
 # Hedonic Pricing Modelling in R
@@ -281,7 +288,7 @@ corrplot(cor(condo_resale[, 5:23]), diag = FALSE, order = "AOE",
          tl.pos = "td", tl.cex = 0.5, method = "number", type = "upper")
 ```
 
-Matrix reordering is very important for mining the hidden structure and pattern in the matrix. There are four methods in corrplot (parameter order), named **“AOE”**, **“FPC”**, **“hclust”**, **“alphabet”**. In the code chunk above, **alphabet** order is used. It **orders the variables alphabetically**.
+Matrix reordering is very important for mining the hidden structure and pattern in the matrix. There are four methods in corrplot (parameter order), named **“AOE”**, **“FPC”**, **“hclust”**, **“alphabet”**. In the code chunk above, **AOE** order is used. It orders the variables using the **angular order of the eigenvectors method**.
 
 From the scatterplot matrix, it is clear that `Freehold` is **highly correlated** to `LEASE_99YEAR`. In view of this, it is wiser to only include either one of them in the subsequent model building. As a result, `LEASE_99YEAR` is **excluded** in the subsequent model building.
 
@@ -366,7 +373,7 @@ First, we will export the residuals of the hedonic pricing model and save it as 
 mlr_output <- as.data.frame(condo_mlr1$residuals)
 ```
 
-Next, we will join the newly created data frame with the `condo_resale.sf` object.
+Next, we will join the newly created data frame with the `condo_resale_sf` object.
 
 ```{r echo=TRUE}
 condo_resale_res_sf <- cbind(condo_resale_sf, 
@@ -380,10 +387,11 @@ Next, we will convert the `condo_resale_res_sf` **simple feature** object into a
 condo_resale_sp <- as_Spatial(condo_resale_res_sf)
 condo_resale_sp
 ```
+
 Next, we will use tmap package to visualise the distribution of the residuals.
 
 ```{r echo=TRUE}
-tmap_mode("plot")
+tmap_mode("view")
 
 tm_shape(mpsz_svy21)+
   tm_polygons(alpha = 0.4) +
@@ -392,6 +400,10 @@ tm_shape(condo_resale_res_sf) +
           alpha = 0.6,
           style="quantile") +
   tm_view(set.zoom.limits = c(11,14))
+```
+
+```{r}
+tmap_mode("plot")
 ```
 
 The figure above reveals that there are **signs of spatial autocorrelation**.
@@ -451,7 +463,7 @@ bw_fixed <- bw.gwr(formula = SELLING_PRICE ~ AREA_SQM + AGE  + PROX_CBD +
                   longlat=FALSE)
 ```
 
-The result shows that the recommended bandwidth is 971.3398 metres. The unit of measurement is in metres because the projection coordinated system is SVY21, which uses metres.
+The result shows that the recommended bandwidth is 971.3793 metres. The unit of measurement is in metres because the projection coordinated system is SVY21, which uses metres.
 
 ### GWModel method - fixed bandwidth
 
@@ -547,10 +559,11 @@ condo_resale_sf_adaptive <- cbind(condo_resale_res_sf,
 
 glimpse(condo_resale_sf_adaptive)
 ```
+
 ## Visualising local R2
 
 ```{r echo=TRUE}
-tmap_mode("plot")
+tmap_mode("view")
 
 tm_shape(mpsz_svy21)+
   tm_polygons(alpha = 0.1) +
@@ -561,10 +574,14 @@ tm_shape(condo_resale_sf_adaptive) +
   tm_view(set.zoom.limits = c(11,14))
 ```
 
-## By URA Plannign Region
+```{r}
+tmap_mode("plot")
+```
+
+## By URA Planning Region
 
 ```{r echo=TRUE}
-tmap_mode("plot")
+tmap_mode("view")
 
 tm_shape(mpsz_svy21[mpsz_svy21$REGION_N=="CENTRAL REGION", ])+
   tm_polygons()+
@@ -573,4 +590,8 @@ tm_shape(condo_resale_sf_adaptive) +
            size = 0.15,
            border.col = "gray60",
            border.lwd = 1)
+```
+
+```{r}
+tmap_mode("plot")
 ```
