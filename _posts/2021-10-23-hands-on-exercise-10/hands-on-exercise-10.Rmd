@@ -42,7 +42,7 @@ for(p in packages){
 }
 ```
 
-Due to the issue regarding the s2 object class, we will use the older version (i.e. 0.9-8) of **sf** package instead of the latest one (i.e. 1.0-3). We will only need to install once.
+Due to the s2 object class issue, we will use the older version (i.e. 0.9-8) of **sf** package instead of the latest one (i.e. 1.0-3). We will only need to install once.
 
 ```{r echo=TRUE}
 library(devtools)
