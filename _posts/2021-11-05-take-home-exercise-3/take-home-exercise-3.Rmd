@@ -584,3 +584,124 @@ We can now save the final flat resale price data set as a **SHP** file using *st
 ```{r echo=TRUE, eval=FALSE}
 st_write(flat_resale_sf, "data/geospatial/resale-flat-prices-final.shp")
 ```
+
+# 4.0 EDA
+
+## 4.1 Import Full Dataset
+
+*st_read()* of **sf** package is used to import the final data set, which is in **shapefile** format.
+
+```{r echo=TRUE}
+flat_resale_sf <- st_read(dsn="data/geospatial",
+                          layer="resale-flat-prices-final")
+```
+
+## 4.2 EDA using statistical graphs
+
+### 4.2.1 Dependent Variable 
+
+We can plot the distribution of **PRICE** using a histogram as shown below.
+
+```{r echo=TRUE}
+ggplot(data=flat_resale_sf, aes(x=`PRICE`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+```
+
+The figure above reveals a slightly **right skewed** distribution. This means that more HDB flats were transacted at **relative lower prices**.
+
+Statistically, the skewed distribution can be **normalised** using **log transformation**. *mutate()* of **dplyr** package is used to derive a new variable called **LOG_PRICE** using a log transformation on the variable **PRICE**.
+
+```{r echo=TRUE}
+flat_resale_sf <- flat_resale_sf %>%
+  mutate(`LOG_PRICE` = log(PRICE)) %>%
+  relocate(`LOG_PRICE`, .after = `PRICE`)
+```
+
+We can now plot the distribution of **LOG_PRICE**.
+
+```{r echo=TRUE}
+ggplot(data=flat_resale_sf, aes(x=`LOG_PRICE`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+```
+
+### 4.2.2 Independent Variables
+
+It is found that the **LEASE_YRS** column is still in string format. We will convert it to numeric format for us to conduct EDA and to input into the model later. 
+
+```{r echo=TRUE}
+flat_resale_sf$LEASE_YRS <- as.numeric(flat_resale_sf$LEASE_YRS)
+```
+
+We will now draw multiple histograms to show multiple distributions of the independent variables. This is done using *ggarrange()* of **ggpubr** package.
+
+```{r echo=TRUE, fig.width=10, fig.height=8}
+AREA_SQM <- ggplot(data=flat_resale_sf, aes(x= `AREA_SQM`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+LEASE_YRS <- ggplot(data=flat_resale_sf, aes(x= `LEASE_YRS`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_CBD <- ggplot(data=flat_resale_sf, aes(x= `PROX_CBD`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_EC <- ggplot(data=flat_resale_sf, aes(x= `PROX_EC`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_HAWKER <- ggplot(data=flat_resale_sf, aes(x= `PROX_HA`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_MRT <- ggplot(data=flat_resale_sf, aes(x= `PROX_MRT`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_PARK <- ggplot(data=flat_resale_sf, aes(x= `PROX_PARK`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_GDPRI <- ggplot(data=flat_resale_sf, aes(x= `PROX_GDPRI`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_MALL <- ggplot(data=flat_resale_sf, aes(x= `PROX_MALL`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+PROX_SUP <- ggplot(data=flat_resale_sf, aes(x= `PROX_SUP`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+NUM_KIN <- ggplot(data=flat_resale_sf, aes(x= `NUM_KIN`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+NUM_CC <- ggplot(data=flat_resale_sf, aes(x= `NUM_CC`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+NUM_STOP <- ggplot(data=flat_resale_sf, aes(x= `NUM_STOP`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+NUM_PRI <- ggplot(data=flat_resale_sf, aes(x= `NUM_PRI`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+ggarrange(AREA_SQM, LEASE_YRS, PROX_CBD, PROX_EC, PROX_HAWKER, PROX_MRT, PROX_PARK, PROX_GDPRI, PROX_MALL, PROX_SUP, NUM_KIN, NUM_CC, NUM_STOP, NUM_PRI, ncol = 3, nrow = 5)
+```
+
+We can observe that the distribution of the **majority** of the independent variables are **right skewed**, while variables such as **LEASE_YRS** and **PROX_CBD** are slightly **left skewed**.
+
+## 4.3 EDA using statistical point map
+
+We want to reveal the geospatial distribution flat resale prices (i.e. **dependent** variable) in Singapore using the **tmap** package.
+
+```{r echo=TRUE}
+tmap_mode("view")
+
+tm_shape(mpsz_sf)+
+  tm_polygons() +
+tm_shape(flat_resale_sf) +  
+  tm_dots(col = "PRICE",
+          alpha = 0.6,
+          style="quantile") +
+  tm_view(set.zoom.limits = c(11,14))
+```
+
+```{r}
+tmap_mode('plot')
+```
+
+From the map, we can observe that flats with **higher resale prices** are **more concentrated in the central area** of Singapore. 
+
+
