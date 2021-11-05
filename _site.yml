@@ -27,6 +27,8 @@ navbar:
         href: https://geniceee-is415-blog.netlify.app/posts/2021-10-16-hands-on-exercise-9/
       - text: "Hands-on Ex 10"
         href: https://geniceee-is415-blog.netlify.app/posts/2021-10-23-hands-on-exercise-10/
+      - text: "Hands-on Ex 11"
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-11-05-hands-on-exercise-10/
         
     - text: "In-class Ex"
       menu:
@@ -48,7 +50,7 @@ navbar:
       - text: "Take-home Ex 2"
         href: https://geniceee-is415-blog.netlify.app/posts/2021-09-25-take-home-exercise-2/
       - text: "Take-home Ex 3"
-
+        href: https://geniceee-is415-blog.netlify.app/posts/2021-11-05-take-home-exercise-3/
     - text: "About"
       href: about.html
 output: distill::distill_article
