@@ -704,4 +704,156 @@ tmap_mode('plot')
 
 From the map, we can observe that flats with **higher resale prices** are **more concentrated in the central area** of Singapore. 
 
+# 5.0 Hedonic Price Modelling
 
+We will be building the hedonic pricing model using both multiple linear regression method and appropriate GWR methods.
+
+## 5.1 Multiple Linear Regression Method
+
+### 5.1.1 Visualising the relationships of the independent variables
+
+Before building a multiple regression model, it is important to ensure that the **independent variables** used are **not highly correlated to each other**, which will cause the quality of the model to be compromised.
+
+**Correlation matrix** is commonly used to visualise the relationships between the independent variables. **corrplot** package will be used to plot a scatterplot matrix of the relationship between the independent variables.
+
+```{r echo=TRUE}
+flat_resale <- flat_resale_sf %>%
+  st_set_geometry(NULL)
+```
+
+```{r echo=TRUE, fig.width=18, fig.height=14}
+corrplot(cor(flat_resale[, 3:33]), diag = FALSE, order = "AOE",
+         tl.pos = "td", tl.cex = 0.5, method = "number", type = "upper")
+```
+
+From the scatterplot matrix, it is clear that **PROX_GDPRI** is **highly correlated** to **PROX_CBD**. In view of this, it is wiser to only include either one of them in the subsequent model building. As a result, **PROX_CBD** is **excluded** in the subsequent model building.
+
+### 5.1.2 Building the Hedonic Pricing Model
+
+*lm()* is used to calibrate the multiple linear regression model.
+
+```{r echo=TRUE}
+flat_mlr <- lm(formula = PRICE ~ AREA_SQM + LEASE_YRS + X01.TO.03 + X04.TO.06 + X07.TO.09 + X10.TO.12 + X13.TO.15 + X16.TO.18 + X19.TO.21 + X22.TO.24 + X25.TO.27 + X28.TO.30 + X31.TO.33 + X34.TO.36 + X37.TO.39 + X40.TO.42 + X43.TO.45 + X46.TO.48 + X49.TO.51 + PROX_EC + PROX_HA + PROX_MRT + PROX_GDPRI + PROX_MALL  + PROX_SUP + NUM_KIN + NUM_CC + NUM_STOP + NUM_PRI, data=flat_resale_sf)
+
+summary(flat_mlr)
+```
+
+We can observe that not all the independent variables are statistically significant. We will therefore revise the model by removing those variables which are not statistically significant.
+
+```{r echo=TRUE}
+flat_mlr1 <- lm(formula = PRICE ~ AREA_SQM + LEASE_YRS + X01.TO.03 + X04.TO.06 + X07.TO.09 + X10.TO.12 + X13.TO.15 + X25.TO.27 + X28.TO.30 + X31.TO.33 + X34.TO.36 + X37.TO.39 + X40.TO.42 + X43.TO.45 + X46.TO.48 + X49.TO.51 + PROX_EC + PROX_HA + PROX_MRT + PROX_GDPRI + PROX_MALL  + PROX_SUP + NUM_KIN + NUM_CC + NUM_STOP + NUM_PRI, data=flat_resale_sf)
+
+ols_regress(flat_mlr1)
+```
+
+### 5.1.3 Testing Assumptions of Linear Regression Models
+
+We need to fulfill the 4 following assumptions to perform regression modelling on spatial data:
+  
+  - The residuals are uncorrelated with each other.
+  - The relationship between the dependent variable and independent variables are approximately linear.
+  - The residuals are assumed to be normally distributed.
+  - The residuals are not distributed at random over geographical space.
+  
+#### 5.1.3.1 Test for Multi-collinearity
+
+*ols_vif_tol()* of **olsrr** package is used to test if there are signs of **multi-collinearity**.
+
+```{r echo=TRUE}
+ols_vif_tol(flat_mlr1)
+```
+
+Since the **VIF** of the independent variables are **less than 10**, we can safely conclude that there are **no signs of multi-collinearity** among the independent variables.
+
+#### 5.1.3.2 Test for Non-Linearity
+
+*ols_plot_resid_fit()* of **olsrr** package is used to perform the **linearity** assumption test.
+
+```{r echo=TRUE}
+ols_plot_resid_fit(flat_mlr1)
+```
+
+The figure above reveals that **most of the data points are scattered around the 0 line**, we can therefore safely conclude that the relationships between the dependent variable and independent variables are **linear**.
+
+#### 5.1.3.3 Test for Normality 
+
+*ols_plot_resid_hist()* of **olsrr** package is used to perform the **normality** assumption test.
+
+```{r echo=TRUE}
+ols_plot_resid_hist(flat_mlr1)
+```
+
+The figure reveals that the residuals of the multiple linear regression model (i.e. flat_mlr1) resembles **normal distribution**.
+
+#### 5.1.3.4 Test for Spatial Autocorrelation
+
+The hedonic model that we are building uses **geographically referenced attributes**, hence it is also important for us to **visualise the residuals** of the hedonic pricing model.
+
+In order to perform spatial autocorrelation test, we need to convert the `flat_resale_sf` **simple feature** object into a **SpatialPointsDataFrame**.
+
+First, we will export the residuals of the hedonic pricing model and save it as a data frame.
+
+```{r echo=TRUE}
+mlr_output <- as.data.frame(flat_mlr1$residuals)
+```
+
+Next, we will join the newly created data frame with the `flat_resale_sf` object.
+
+```{r echo=TRUE}
+flat_resale_res_sf <- cbind(flat_resale_sf,
+                            mlr_output) %>%
+  rename(`MLR_RES` = `flat_mlr1.residuals`)
+``` 
+
+Next, we will convert the `flat_resale_res_sf` **simple feature** object into a **SpatialPointsDataFrame**. This is required because the **spdep** package can only process sp conformed spatial data objects.
+
+```{r echo=TRUE}
+flat_resale_sp <- as_Spatial(flat_resale_res_sf)
+flat_resale_sp
+```
+
+Next, we will use tmap package to visualise the distribution of the residuals.
+
+```{r echo=TRUE}
+tmap_mode("view")
+
+tm_shape(mpsz_sf)+
+  tm_polygons(alpha = 0.4) +
+tm_shape(flat_resale_res_sf) +  
+  tm_dots(col = "MLR_RES",
+          alpha = 0.6,
+          style="quantile") +
+  tm_view(set.zoom.limits = c(11,14))
+```
+
+```{r}
+tmap_mode("plot")
+```
+
+The figure above reveals that there are **signs of spatial autocorrelation**. To prove that our observation is true, the **Moran’s I test** will be performed.
+
+First, we will compute the distance-based weight matrix by using *dnearneigh()* function of **spdep**.
+
+```{r echo=TRUE}
+nb <- dnearneigh(coordinates(flat_resale_sp), 0, 1500, longlat = FALSE)
+
+summary(nb)
+```
+
+Next, *nb2listw()* of **spdep** packge will be used to convert the output neighbours lists (i.e. nb) into a spatial weights.
+
+```{r echo=TRUE}
+nb_lw <- nb2listw(nb, style = 'W')
+
+summary(nb_lw)
+```
+
+Next, *lm.morantest()* of **spdep** package will be used to perform Moran’s I test for residual spatial autocorrelation
+
+```{r echo=TRUE}
+lm.morantest(flat_mlr1, nb_lw)
+```
+
+The Global Moran’s I test for residual spatial autocorrelation shows that its **p-value is less than the alpha value of 0.05**. We will thus **reject** the null hypothesis that the residuals are randomly distributed.
+
+Since the Observed Global Moran I = 0.471 which is **greater than 0**, we can infer than the residuals resemble **cluster distribution**.
