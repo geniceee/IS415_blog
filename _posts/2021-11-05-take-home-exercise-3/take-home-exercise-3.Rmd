@@ -220,7 +220,7 @@ We will be making use of the package [**onemapsgapi**](https://cran.r-project.or
 ```{r echo=TRUE, eval=FALSE}
 library(onemapsgapi)
 
-token <- "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjc5NTUsInVzZXJfaWQiOjc5NTUsImVtYWlsIjoiZ2VuaWNlLmdvaC4yMDE4QHNjaXMuc211LmVkdS5zZyIsImZvcmV2ZXIiOmZhbHNlLCJpc3MiOiJodHRwOlwvXC9vbTIuZGZlLm9uZW1hcC5zZ1wvYXBpXC92MlwvdXNlclwvc2Vzc2lvbiIsImlhdCI6MTYzNTU3OTEzMywiZXhwIjoxNjM2MDExMTMzLCJuYmYiOjE2MzU1NzkxMzMsImp0aSI6ImIzZmEyOTg1MDQyZTFiOGY0MWYzMWJlNzFmYzdlZTEwIn0.z2gh5tK3ezz0lUXLoPilPVOfN0MaXJm4N4RbAtVIQFI"
+token <- "<insert your token here>"
 
 data <- list("eldercare", "hawkercentre", "relaxsg", "supermarkets", "kindergartens", "childcare")
 
@@ -706,7 +706,25 @@ From the map, we can observe that flats with **higher resale prices** are **more
 
 # 5.0 Hedonic Price Modelling
 
-We will be building the hedonic pricing model using both multiple linear regression method and appropriate GWR methods.
+We will be building the hedonic pricing model using both multiple linear regression method and appropriate GWR methods. The independent variables we are looking at include:
+
+- Structural factors
+  - Area of the unit
+  - Floor level
+  - Remaining lease
+- Locational factors
+  - Proximity to CBD
+  - Proximity to eldercare centres
+  - Proximity to hawker centres
+  - Proximity to MRT
+  - Proximity to parks
+  - Proximity to good primary schools
+  - Proximity to shopping malls
+  - Proximity to supermarkets
+  - No. of kindergartens within 350m
+  - No. of childcare centres within 350m
+  - No. of bus stops within 350m
+  - No. of primary schools within 1km
 
 ## 5.1 Multiple Linear Regression Method
 
@@ -857,3 +875,118 @@ lm.morantest(flat_mlr1, nb_lw)
 The Global Moran’s I test for residual spatial autocorrelation shows that its **p-value is less than the alpha value of 0.05**. We will thus **reject** the null hypothesis that the residuals are randomly distributed.
 
 Since the Observed Global Moran I = 0.471 which is **greater than 0**, we can infer than the residuals resemble **cluster distribution**.
+
+## 5.2 GWR Model Method
+
+We will calibrate the GWR-based hedonic pricing model using the adaptive bandwidth approach.
+
+### 5.2.1 Computing the adaptive bandwidth
+
+We first use *bw.gwr()* to determine the recommended data point to use.
+
+```{r echo=TRUE}
+bw_adaptive <- bw.gwr(formula = PRICE ~ AREA_SQM + LEASE_YRS + PROX_EC +
+                      PROX_HA + PROX_MRT  + PROX_GDPRI + PROX_MALL + PROX_SUP +
+                      NUM_KIN + NUM_CC + NUM_STOP + NUM_PRI,
+                      data=flat_resale_sp, approach="CV", kernel="gaussian",
+                      adaptive=TRUE, longlat=FALSE)
+```
+
+The result shows that the **recommended data point** is **57**. We will then pass this value in while computing the adaptive bandwidth GWR model. 
+
+### 5.2.2 Constructing Adaptive Bandwidth GWR Model
+
+We can now go ahead to calibrate the GWR-based hedonic pricing model using the adaptive bandwidth and gaussian kernel.
+
+```{r echo=TRUE}
+gwr_adaptive <- gwr.basic(formula = PRICE ~ AREA_SQM + LEASE_YRS + PROX_EC +
+                      PROX_HA + PROX_MRT  + PROX_GDPRI + PROX_MALL + PROX_SUP +
+                      NUM_KIN + NUM_CC + NUM_STOP + NUM_PRI,
+                      data=flat_resale_sp, bw=bw_adaptive, 
+                      kernel = 'gaussian', adaptive=TRUE, longlat = FALSE)
+
+gwr_adaptive
+```
+
+The report shows that the **adjusted r-square** of the **GWR** is **0.9382667** which is significantly **better** than the **global multiple linear regression model** of **0.5369**.
+
+### 5.2.3 Visualising GWR Output
+
+In addition to regression residuals, the output feature class table includes:
+
+- Condition Number: evaluates **local collinearity**. In the presence of strong local collinearity, results become unstable. Results associated with condition numbers **larger than 30** may be **unreliable**.
+- Local R2: these values **range between 0.0 and 1.0** and indicate **how well the local regression model fits observed y values**. 
+- Predicted: estimated (or fitted) y values computed by GWR.
+- Residuals: to obtain the residual values, the fitted y values are subtracted from the observed y values
+- Coefficient Standard Error: measurse the reliability of each coefficient estimate.
+
+They are all stored in a **SpatialPointsDataFrame** or **SpatialPolygonsDataFrame** object integrated with fit.points, GWR coefficient estimates, y value, predicted values, coefficient standard errors and t-values in its “data” slot in an object called **SDF** of the output list.
+
+#### 5.2.3.1 Converting SDF into sf data frame
+
+To visualise the fields in **SDF**, we need to first covert it into **sf** data frame.
+
+```{r echo=TRUE}
+flat_resale_sf_adaptive <- st_as_sf(gwr_adaptive$SDF) %>%
+  st_transform(crs=3414)
+```
+
+```{r echo=TRUE}
+gwr_adaptive_output <- as.data.frame(gwr_adaptive$SDF)
+
+flat_resale_sf_adaptive <- cbind(flat_resale_res_sf,
+                                  as.matrix(gwr_adaptive_output))
+
+glimpse(flat_resale_sf_adaptive)
+```
+
+#### 5.2.3.2 Visualising Local R2
+
+```{r echo=TRUE}
+tmap_mode("view")
+
+tm_shape(mpsz_sf)+
+  tm_polygons(alpha = 0.1) +
+tm_shape(flat_resale_sf_adaptive) +  
+  tm_dots(col = "Local_R2",
+          border.col = "gray60",
+          border.lwd = 1) +
+  tm_view(set.zoom.limits = c(11,14))
+```
+
+```{r}
+tmap_mode("plot")
+```
+
+We can observe that majority of the HDB flats have **Local R-squared values** in the range from **0.6 to 1**. This implies that **most of the HDB Resale Prices** are **explained by the GWR Model**.
+
+# 6.0 Conclusion
+
+To recap, we used the following factors to build the hedonic pricing model:
+
+- Area of the unit
+- Floor level
+- Remaining lease
+- Proximity to CBD
+- Proximity to eldercare centres
+- Proximity to hawker centres
+- Proximity to MRT
+- Proximity to parks
+- Proximity to good primary schools
+- Proximity to shopping malls
+- Proximity to supermarkets
+- No. of kindergartens within 350m
+- No. of childcare centres within 350m
+- No. of bus stops within 350m
+- No. of primary schools within 1km
+
+From our study, we found that the majority of these factors affect the resale prices of 4-room flats with a transaction period from 01-Jan-2019 to 30-Sep-2020. Only the factor **PROX_CBD** is not used in model building since it has high correlation with another factor **GD_PRISCH**.
+
+# 7.0 References
+
+[onemapsgapi](https://cran.r-project.org/web/packages/onemapsgapi/onemapsgapi.pdf)
+[Mall-Coordinates-Web-Scraper](https://github.com/ValaryLim/Mall-Coordinates-Web-Scraper/blob/master/mall_coordinates_updated.csv)
+[Geocoding Singapore Coordinates: OneMap API](https://towardsdatascience.com/geocoding-singapore-coordinates-onemap-api-3e1542bf26f7)
+[OneMap API Docs](https://www.onemap.gov.sg/docs/#introduction)
+[A Comprehensive Guide to Singapore’s SAP Schools](https://smiletutor.sg/a-comprehensive-guide-to-singapores-sap-schools/)
+[Gifted Education Programme (GEP) Schools in Singapore: Which One to Choose?](https://www.kiasuparents.com/kiasu/article/gifted-education-programme-gep-schools-in-singapore-which-one-to-choose/)
