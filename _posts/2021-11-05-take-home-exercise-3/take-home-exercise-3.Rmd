@@ -1,0 +1,212 @@
+---
+title: "Take-home Exercise 3"
+description: |
+  This take home exercise aims to explain factors affecting resale prices of public housing in Singapore by building hedonic pricing models using appropriate GWR methods.
+author:
+  - name: Genice Goh
+    url: {}
+date: 11-05-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE)
+```
+
+# 1.0 Introduction
+
+Housing price is affected by a variety of factors, including global factors such as the general economy of a country or property specific factors such as structural variables related to the property and locational variables related to the neighbourhood.
+
+Hedonic pricing model is used to examine the effect of housing factors as on property price. However, this method fails to take into consideration that spatial autocorrelation and spatial heterogeneity exist in housing transaction data, which could lead to biased results (Anselin 1998). In view of this limitation, Geographical Weighted Regression (GWR) was introduced to calibrate hedonic price models for housing.
+
+As such, we will be building hedonic pricing models to explain factors affecting the resale prices of public housing in Singapore using appropriate GWR methods.
+
+## 1.1 The Data 
+
+The data sets used for this analysis include:
+
+- Resale Flat Prices from [data.gov.sg]("https://data.gov.sg/dataset/resale-flat-prices")
+- Master Plan 2014 Subzone Boundary (Web) from [data.gov.sg](https://data.gov.sg/dataset/master-plan-2014-subzone-boundary-web?resource_id=1c6b586b-61ca-45a9-b704-df4c9057fbd6)
+- Eldercare centres, hawker centres, parks, supermarkets, kindergartens and childcare centres extracted from SLA OneMap Service by using [onemapsgapi](https://cran.r-project.org/web/packages/onemapsgapi/index.html)
+- Train Station from [LTA DataMall](https://datamall.lta.gov.sg/content/datamall/en/static-data.html)
+- Bus Stop Location from [LTA DataMall](https://datamall.lta.gov.sg/content/datamall/en/static-data.html)
+- School Directory and Information from [data.gov.sg](https://data.gov.sg/dataset/school-directory-and-information)
+- Shopping Mall from [ValaryLim](https://github.com/ValaryLim/Mall-Coordinates-Web-Scraper/blob/master/mall_coordinates_updated.csv)
+
+# 1.2 Installing and Loading Packages
+
+The packages used for this analysis include:
+
+- **sf**, **spdep**: used for handling of geospatial data
+- **tidyverse** (**readr**, **ggplot2**, **dplyr**): mainly used for wrangling attribute data 
+- **tmap**: used to prepare cartographic quality choropleth maps
+- **coorplot**, **ggpubr**: used for multivariate data visualisation and analysis
+- **olsrr**: used to build ordinary least squares regression models
+- **GWmodel**: used for geospatial statistical modelling
+- **httr**: used to make API calls 
+- **units**, **matrixStats**: used for matrix manipulation
+
+```{r echo=TRUE}
+packages = c('olsrr', 'corrplot', 'ggpubr', 'sf', 'spdep', 'GWmodel', 'tmap', 'tidyverse', 'httr', 'units', 'matrixStats')
+for (p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+
+# 2.0 Geospatial Data
+
+## 2.1 Importing Geospatial Data
+
+*st_read()* of **sf** package is used to import the geospatial data, which is in **shapefile** format.
+
+```{r echo=TRUE}
+mrt_sf <- st_read(dsn="data/geospatial",
+               layer="MRTLRTStnPtt")
+
+bus_sf <- st_read(dsn="data/geospatial",
+               layer="BusStop")
+
+mpsz_sf <- st_read(dsn="data/geospatial",
+               layer="MP14_SUBZONE_WEB_PL")
+```
+
+From the output message, we can see that:
+
+- There are **185 point features** and **3 fields** in the `mrt_sf` sf data frame.
+- There are **5156 point features** and **3 fields** in the `bus_sf` sf data frame.
+- There are **323 multi-polygon features** and **15 fields** in the `mpsz_sf` sf data frame.
+- SVY21 is the **Projected Coordinates Reference System** for the data frames. 
+
+## 2.2 Data Preprocessing
+
+Before we visualise the geospatial data, we will need to conduct data preprocessing to ensure that there are no invalid geometries and missing values.
+
+### 2.2.1 Invalid Geometries
+
+```{r echo=TRUE}
+length(which(st_is_valid(mrt_sf) == FALSE))
+length(which(st_is_valid(bus_sf) == FALSE))
+length(which(st_is_valid(mpsz_sf) == FALSE))
+```
+
+There are **no invalid geometries** in both `mrt_sf`and `bus_sf` data frames while the `mpsz_sf` data frame contains **9 invalid geometries**. We will now proceed to remove the invalid geometries in the `mpsz_sf` data frame.
+
+```{r echo=TRUE}
+mpsz_sf <- st_make_valid(mpsz_sf)
+
+# Check again for invalid geometries
+length(which(st_is_valid(mpsz_sf) == FALSE))
+```
+
+### 2.2.2 Missing Values
+
+```{r echo=TRUE}
+mrt_sf[rowSums(is.na(mrt_sf))!=0,]
+bus_sf[rowSums(is.na(bus_sf))!=0,]
+mpsz_sf[rowSums(is.na(mpsz_sf))!=0,]
+```
+
+We can see that there is **1 observation with missing values** in the `bus_sf` data frame. We will remove it because another bus stop of the same **BUS_ROOF_N** is found after further data exploration.
+
+```{r echo=TRUE, eval=TRUE}
+bus_sf <- bus_sf[!rowSums(is.na(bus_sf))!=0,]
+
+# Check again for missing values
+bus_sf[rowSums(is.na(bus_sf))!=0,]
+```
+
+### 2.2.3 Duplicated Values
+
+```{r echo=TRUE, eval=TRUE}
+mrt_sf[duplicated(mrt_sf$STN_NAME),]
+bus_sf[duplicated(bus_sf$BUS_STOP_N),]
+mpsz_sf[duplicated(mpsz_sf$SUBZONE_C),]
+```
+
+We can observe that there are **19** and **13** **duplicated observations** in the `mrt_sf` and `bus_sf` data frames respectively, while there are none in the `mpsz_sf` data frame. We will proceed to remove the duplicated observations.
+
+```{r echo=TRUE, eval=TRUE}
+mrt_sf <- mrt_sf[!duplicated(mrt_sf$STN_NAME),]
+bus_sf <- bus_sf[!duplicated(bus_sf$BUS_STOP_N),]
+
+# Check again for duplicates
+mrt_sf[duplicated(mrt_sf$STN_NAME),]
+bus_sf[duplicated(bus_sf$BUS_STOP_N),]
+```
+
+## 2.3 Verify Coordinate Reference System
+
+We will first need to retrieve the coordinate reference system for verification. *st_crs()* of **sf** package is used to do this. 
+
+```{r echo=TRUE}
+st_crs(mrt_sf)
+st_crs(bus_sf)
+st_crs(mpsz_sf)
+```
+
+From the output messages, we can observe that the EPSG code for the data frames is currently **9001**. This is **wrong** because the EPSG code of projection coordinate system SVY21 is supposed to be **3414**, instead of 9001. 
+
+*st_set_crs()* of **sf** package is therefore used to assign the correct EPSG code for the data frames.
+
+```{r echo=TRUE}
+mrt_sf <- st_set_crs(mrt_sf, 3414)
+bus_sf <- st_set_crs(bus_sf, 3414)
+mpsz_sf <- st_set_crs(mpsz_sf, 3414)
+```
+
+We will now use *st_crs()* of **sf** package to retrieve the coordinate reference system again.
+
+```{r echo=TRUE}
+st_crs(mrt_sf)
+st_crs(bus_sf)
+st_crs(mpsz_sf)
+```
+
+The EPSG code is now correctly assigned for all sf data frames!!
+
+## 2.4 Visualising Geospatial Data
+
+It is useful to plot a map to visualise the geospatial data, so that we can easily get a preliminary look at the spatial patterns. 
+
+```{r echo=TRUE}
+tmap_mode('view')
+
+tm_shape(mrt_sf) +
+  tm_dots(col="red") +
+tm_shape(bus_sf) + 
+  tm_dots(col="blue")
+```
+
+```{r}
+tmap_mode('plot')
+```
+
+If we look closely, we can see that there are 5 bus stops outside of Singapore's boundary (46211, 46219, 46239, 46609, 47701). As we are able to travel to and fro Johor Bahru with specific buses, there are designated bus stops located at Johor Bahru.
+
+As such, we should remove these bus stops before proceeding with our analysis. 
+
+## 2.5 Further Data Preprocessing
+
+In this section, we will proceed to remove the bus stops identified earlier.
+
+### 2.5.1 Inspect the specific bus stops
+
+```{r echo=TRUE, eval=TRUE}
+omit_bus <- list(46211, 46219, 46239, 46609, 47701)
+bus_sf[bus_sf$BUS_STOP_N %in% omit_bus,]
+```
+
+We can observe that the location descriptions of these bus stops indeed indicate that they are situated in Johor Bahru. We will therefore need to remove them.
+
+```{r echo=TRUE, eval=TRUE}
+bus_sf <- bus_sf[!bus_sf$BUS_STOP_N %in% omit_bus,]
+
+# Check again if we have removed successfully
+bus_sf[bus_sf$BUS_STOP_N %in% omit_bus,]
+```
