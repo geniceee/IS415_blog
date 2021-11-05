@@ -13,7 +13,7 @@ output:
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, cache = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 # 1.0 Introduction
@@ -209,4 +209,378 @@ bus_sf <- bus_sf[!bus_sf$BUS_STOP_N %in% omit_bus,]
 
 # Check again if we have removed successfully
 bus_sf[bus_sf$BUS_STOP_N %in% omit_bus,]
+```
+
+# 3.0 Aspatial Data
+
+## 3.1 Obtaining Aspatial Data
+
+We will be making use of the package [**onemapsgapi**](https://cran.r-project.org/web/packages/onemapsgapi/onemapsgapi.pdf) to query the required data sets from OneMap API. We will then save these data sets in CSV format. 
+
+```{r echo=TRUE, eval=FALSE}
+library(onemapsgapi)
+
+token <- "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjc5NTUsInVzZXJfaWQiOjc5NTUsImVtYWlsIjoiZ2VuaWNlLmdvaC4yMDE4QHNjaXMuc211LmVkdS5zZyIsImZvcmV2ZXIiOmZhbHNlLCJpc3MiOiJodHRwOlwvXC9vbTIuZGZlLm9uZW1hcC5zZ1wvYXBpXC92MlwvdXNlclwvc2Vzc2lvbiIsImlhdCI6MTYzNTU3OTEzMywiZXhwIjoxNjM2MDExMTMzLCJuYmYiOjE2MzU1NzkxMzMsImp0aSI6ImIzZmEyOTg1MDQyZTFiOGY0MWYzMWJlNzFmYzdlZTEwIn0.z2gh5tK3ezz0lUXLoPilPVOfN0MaXJm4N4RbAtVIQFI"
+
+data <- list("eldercare", "hawkercentre", "relaxsg", "supermarkets", "kindergartens", "childcare")
+
+for (d in data) {
+  df <- get_theme(token, d)
+  write_csv(df, str_replace("data/aspatial/df.csv", "df", d))
+}
+```
+
+## 3.2 Importing Aspatial Data
+
+*read_csv()* of **readr** package is used to import the CSV files. The outputs are **tibble** data frames. 
+
+```{r echo=TRUE, eval=FALSE}
+eldercare = read_csv("data/aspatial/eldercare.csv")
+hawker = read_csv("data/aspatial/hawkercentre.csv")
+park = read_csv("data/aspatial/relaxsg.csv")
+supermarket = read_csv("data/aspatial/supermarkets.csv")
+kindergarten = read_csv("data/aspatial/kindergartens.csv")
+childcare = read_csv("data/aspatial/childcare.csv")
+school = read_csv("data/aspatial/schools.csv")
+mall = read_csv("data/aspatial/shopping-mall.csv")
+flat_resale = read_csv("data/aspatial/resale-flat-prices.csv")
+```
+
+It is also important to understand the data that we are working with. *glimpse()* of **dplyr** package is therefore used to perform exploratory data analysis. 
+
+```{r echo=TRUE, eval=FALSE}
+glimpse(eldercare)
+glimpse(hawker)
+glimpse(park)
+glimpse(supermarket)
+glimpse(kindergarten)
+glimpse(childcare)
+glimpse(school)
+glimpse(mall)
+glimpse(flat_resale)
+```
+
+## 3.3 Data Preparation
+
+We will proceed to prepare the data such that they can be used later for the preparation of independent variables. The steps taken include:
+
+- Removing redundant columns (if necessary)
+- Filtering the data according to specified conditions (if necessary)
+- Creation of new data frames (if necessary)
+
+```{r echo=TRUE, eval=FALSE}
+# remove redundant columns for eldercare dataset
+eldercare <- eldercare %>%
+  select(c(1, 4:5))
+
+# remove redundant columns for hawker dataset
+hawker <- hawker %>%
+  select(c(1, 14:15))
+
+# remove redundant columns for park dataset
+park <- park %>%
+  select(c(1, 8:9))
+
+# remove redundant columns for supermarket dataset
+supermarket <- supermarket %>%
+  select(c(1, 7:8))
+
+# remove redundant columns for kindergarten dataset
+kindergarten <- kindergarten %>%
+  select(c(1, 5:6))
+
+# remove redundant columns for childcare dataset
+childcare <- childcare %>%
+  select(c(1, 5:6))
+
+# filter out primary schools; remove redundant columns 
+prischool <- school %>%
+  filter(mainlevel_code == "PRIMARY") %>% 
+  select(c(1, 3:4, 25,27))
+
+# filter out 4-room flats with transaction period from 01-Jan-19 to 30-Sep-20
+flat_resale <- flat_resale %>% 
+  filter(flat_type == "4 ROOM") %>%
+  filter(month >= "2019-01" & month < "2020-10")
+```
+
+## 3.4 Data Preprocessing
+
+We will need to conduct data preprocessing to ensure that there are no NA values in all data frames.
+
+### 3.4.1 NA Values
+
+```{r echo=TRUE, eval=FALSE}
+eldercare[rowSums(is.na(eldercare))!=0,]
+hawker[rowSums(is.na(hawker))!=0,]
+park[rowSums(is.na(park))!=0,]
+supermarket[rowSums(is.na(supermarket))!=0,]
+kindergarten[rowSums(is.na(kindergarten))!=0,]
+childcare[rowSums(is.na(childcare))!=0,]
+prischool[rowSums(is.na(prischool))!=0,]
+mall[rowSums(is.na(mall))!=0,]
+flat_resale[rowSums(is.na(flat_resale))!=0,]
+```
+
+There are no NA values in all the data frames. 
+
+## 3.5 Geocoding for Aspatial Data
+
+After exploratory data analysis performed earlier, it is found that `prischool` and `flat_resale` data frames do not have **Lat** and **Lng** columns. These columns are required for the preparation of the independent variables later. We therefore need to use [OneMap API](https://cran.r-project.org/web/packages/onemapsgapi/index.html) to geocode the coordinates columns. 
+
+### 3.5.1 Create Address Column
+
+We first need to create an address column for the `flat_resale` data frame since the address data is currently split into 2 columns block and street name respectively.
+
+*unite()* of **dpylr** package is used to concatenate the 2 columns. 
+
+```{r echo=TRUE, eval=FALSE}
+flat_resale <- flat_resale %>%
+  unite("address", block:street_name, sep= " ")
+```
+
+### 3.5.2 Rename ST. to SAINT
+
+We alo observe that some addresses in the the `flat_resale` data frame start with **"ST."**. It is found later that this will pose problems during geocoding. As a result, we will need to rename **"ST."** to its full version **"SAINT"**.
+
+```{r echo=TRUE, eval=FALSE}
+flat_resale$address <- gsub("ST\\.", "SAINT", flat_resale$address)
+```
+
+### 3.5.3 Geocoding Function
+
+In this function, the input variable **address** is passed in as a search value in the query to the API. The output is then converted to a data frame, where we only choose to retain the **Latitude** and **Longitude** columns. These 2 columns are returned as the output.  
+
+```{r echo=TRUE, eval=FALSE}
+geocode <- function(address) {
+
+  url <- "https://developers.onemap.sg/commonapi/search"
+
+  query <- list("searchVal" = address, "returnGeom" = "Y",
+                "getAddrDetails" = "N", "pageNum" = "1")
+
+  res <- GET(url, query = query, verbose())
+
+  output <- content(res) %>%
+    as.data.frame %>%
+    select(results.LATITUDE, results.LONGITUDE)
+
+  return(output)
+}
+```
+
+### 3.5.4 Geocoding for Primary Schools
+
+We will now loop through each row of the `prischool` data frame and implement the **geocode** function. The output is saved as 2 new columns **Lat** and **Lng**.
+
+```{r echo=TRUE, eval=FALSE}
+prischool$Lat <- 0
+prischool$Lng <- 0
+
+for (i in 1:nrow(prischool)) {
+  output <- geocode(prischool$postal_code[i])
+  
+  prischool$Lat[i] <- output$results.LATITUDE
+  prischool$Lng[i] <- output$results.LONGITUDE
+}
+```
+
+### 3.5.5 Geocoding for Resale Flat Prices
+
+We will now loop through each row of the `flat_resale` data frame and implement the **geocode** function. The output is saved as 2 new columns **Lat** and **Lng**.
+
+```{r echo=TRUE, eval=FALSE}
+flat_resale$Lat <- 0
+flat_resale$Lng <- 0
+
+for (i in 1:nrow(flat_resale)) {
+  output <- geocode(flat_resale$address[i])
+  
+  flat_resale$Lat[i] <- output$results.LATITUDE
+  flat_resale$Lng[i] <- output$results.LONGITUDE
+}
+```
+
+## 3.6 Structural Factor Preparation
+
+### 3.6.1 Floor Level
+
+We need to conduct dummy coding on the **storey_range** variable for us to use it in model later. We will first look at the individual storey-range values for us to get a rough idea on the number of columns that will be produced. 
+
+```{r echo=TRUE, eval=FALSE}
+unique(flat_resale$storey_range)
+```
+
+We observed that there are **17 storey range categories**.
+
+To conduct dummy coding, we will be using *pivot_wider()* of **dplyr** package to create duplicate variables representing every store-range. If the obeservation belongs to the storey-range, the value will be 1. The value will be 0 otherwise.   
+
+```{r echo=TRUE, eval=FALSE}
+flat_resale <- flat_resale %>%
+  pivot_wider(names_from = storey_range, values_from = storey_range, 
+              values_fn = list(storey_range = ~1), values_fill = 0) 
+```
+
+### 3.6.2 Remaining Lease
+
+We need to convert the **remaining_lease** column from string to numeric format to use in the model later. We will first split the string within the column and take the value(s) of the year and month. We will then calculate the remaining lease in years and replace the original value. 
+
+```{r echo=TRUE, eval=FALSE}
+str_list <- str_split(flat_resale$remaining_lease, " ")
+
+for (i in 1:length(str_list)) {
+  if (length(unlist(str_list[i])) > 2) {
+      year <- as.numeric(unlist(str_list[i])[1])
+      month <- as.numeric(unlist(str_list[i])[3])
+      flat_resale$remaining_lease[i] <- year + round(month/12, 2)
+  }
+  else {
+    year <- as.numeric(unlist(str_list[i])[1])
+    flat_resale$remaining_lease[i] <- year
+  }
+}
+```
+
+## 3.7 Locational Variable Preparation
+
+### 3.7.1 Good Pri Sch Variable Preparation
+
+We need to filter out good primary schools and save it as variable **goodprischool** for it to be used in the model. Good primary schools are defined to be Special Assistance Programme (SAP) primary schools or primary schools with the Gifted Education Programme (GEP). 
+
+```{r echo=TRUE, eval=FALSE}
+gdprischool <- prischool %>%
+  filter(sap_ind == "Yes" | gifted_ind == "Yes")
+```
+
+### 3.7.2 CBD Variable Preparation
+
+The Central Business District (CBD) is in Downtown Core, located in the southwest part of Singapore. We will therefore take the coordinates of Downtown Core to be the coordinates of the CBD and convert it into a **sf** data frame.
+
+```{r echo=TRUE, eval=FALSE}
+lat <- 1.287953
+long <- 103.851784
+
+cbd_sf <- data.frame(lat, long) %>%
+  st_as_sf(coords = c("long", "lat"), crs=4326) %>%
+  st_transform(crs=3414)
+```
+
+### 3.7.3 Convert Datasets to sf
+
+We need to convert the data sets into **sf** data frames for us to calculate the proximity distance matrices. 
+
+```{r echo=TRUE, eval=FALSE}
+flat_resale_sf <- st_as_sf(flat_resale, 
+                         coords = c("Lng", "Lat"), crs=4326) %>%
+  st_transform(crs = 3414)
+
+eldercare_sf <- st_as_sf(eldercare, 
+                         coords = c("Lng", "Lat"), crs=4326) %>%
+  st_transform(crs = 3414)
+
+hawker_sf <- st_as_sf(hawker, 
+                      coords = c("Lng", "Lat"), crs=4326) %>%
+  st_transform(crs = 3414)
+
+park_sf <- st_as_sf(park, 
+                    coords = c("Lng", "Lat"), crs=4326) %>%
+  st_transform(crs = 3414)
+
+gdprischool_sf <- st_as_sf(gdprischool, 
+                           coords = c("Lng", "Lat"), crs=4326) %>%
+  st_transform(crs = 3414)
+
+mall_sf <- st_as_sf(mall, 
+                    coords = c("longitude", "latitude"), crs=4326) %>%
+  st_transform(crs = 3414)
+
+supermarket_sf <- st_as_sf(supermarket, 
+                           coords = c("Lng", "Lat"), crs=4326) %>%
+  st_transform(crs = 3414)
+
+kindergarten_sf <- st_as_sf(kindergarten, 
+                            coords = c("Lng", "Lat"), crs=4326) %>%
+  st_transform(crs = 3414)
+
+childcare_sf <- st_as_sf(childcare, 
+                         coords = c("Lng", "Lat"), crs=4326) %>%
+  st_transform(crs = 3414)
+
+prischool_sf <- st_as_sf(prischool, 
+                         coords = c("Lng", "Lat"), crs=4326) %>%
+  st_transform(crs = 3414)
+```
+
+### 3.7.4 Proximity Distance Calculation
+
+This function computes the distance to the nearest facility. *st_distance()* of **sf** package is used to compute the distance between all flats and the respective facilities. *rowMins()* of **matrixStats** is then used to take the shortest distance within each row in the output matrix. The values will be appended to the data frame as a new column. 
+  
+```{r echo=TRUE, eval=FALSE}
+proximity <- function(df1, df2, varname) {
+  
+  matrix <- st_distance(df1, df2) %>%
+    drop_units()
+  
+  df1[,varname] <- rowMins(matrix)
+  
+  return(df1)
+}
+```
+
+We will now implement the **proximity** function to the required variables. 
+
+```{r echo=TRUE, eval=FALSE}
+flat_resale_sf <- proximity(flat_resale_sf, cbd_sf, "PROX_CBD") %>%
+  proximity(., eldercare_sf, "PROX_EC") %>%
+  proximity(., hawker_sf, "PROX_HA") %>%
+  proximity(., mrt_sf, "PROX_MRT") %>%
+  proximity(., park_sf, "PROX_PARK") %>%
+  proximity(., gdprischool_sf, "PROX_GDPRI") %>%
+  proximity(., mall_sf, "PROX_MALL") %>%
+  proximity(., supermarket_sf, "PROX_SUP")
+```
+
+### 3.7.5 Facility Count within Radius Calculation
+
+This function computes the facility count within a radius. Similarly, *st_distance()* of **sf** package is used to compute the distance between all flats and the respective facilities. *rowSums()* of **dplyr** is then used to count the observations with distances below the defined radius. The values will be appended to the data frame as a new column. 
+
+```{r echo=TRUE, eval=FALSE}
+num_radius <- function(df1, df2, varname, radius) {
+  
+  matrix <- st_distance(df1, df2) %>%
+    drop_units() %>%
+    as.data.frame()
+  
+  df1[,varname] <- rowSums(matrix <= radius)
+  
+  return(df1)
+}
+```
+
+We will now implement the **num_radius** function to the required variables. 
+
+```{r echo=TRUE, eval=FALSE}
+flat_resale_sf <- num_radius(flat_resale_sf, kindergarten_sf, 
+                             "NUM_KIN", 350) %>%
+  num_radius(., childcare_sf, "NUM_CC", 350) %>%
+  num_radius(., bus_sf, "NUM_STOP", 350) %>%
+  num_radius(., prischool_sf, "NUM_PRI", 1000)
+```
+
+## 3.8 Saving the Dataset
+
+Before saving the dataset, we will remove the redundant columns, rename the columns to shorter forms and relocate the **price** columns to the front of the data frame. 
+
+```{r echo=TRUE, eval=FALSE}
+flat_resale_sf <- flat_resale_sf %>%
+  select(5, 8, 9, 10:39) %>%
+  rename("AREA_SQM" = "floor_area_sqm", "LEASE_YRS" = "remaining_lease", 
+         "PRICE"= "resale_price") %>%
+  relocate(`PRICE`)
+```
+
+We can now save the final flat resale price data set as a **SHP** file using *st_write* of **sf** package.
+
+```{r echo=TRUE, eval=FALSE}
+st_write(flat_resale_sf, "data/geospatial/resale-flat-prices-final.shp")
 ```
