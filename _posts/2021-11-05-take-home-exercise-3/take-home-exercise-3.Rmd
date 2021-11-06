@@ -892,7 +892,7 @@ bw_adaptive <- bw.gwr(formula = PRICE ~ AREA_SQM + LEASE_YRS + PROX_EC +
                       adaptive=TRUE, longlat=FALSE)
 ```
 
-The result shows that the **recommended data point** is **57**. We will then pass this value in while computing the adaptive bandwidth GWR model. 
+The result shows that the **recommended data point** is **56**. We will then pass this value in while computing the adaptive bandwidth GWR model. 
 
 ### 5.2.2 Constructing Adaptive Bandwidth GWR Model
 
@@ -980,13 +980,13 @@ To recap, we used the following factors to build the hedonic pricing model:
 - No. of bus stops within 350m
 - No. of primary schools within 1km
 
-From our study, we found that the majority of these factors affect the resale prices of 4-room flats with a transaction period from 01-Jan-2019 to 30-Sep-2020. Only the factor **PROX_CBD** is not used in model building since it has high correlation with another factor **GD_PRISCH**.
+From our study, we found that the majority of these factors affect the resale prices of 4-room flats with a transaction period from 01-Jan-2019 to 30-Sep-2020. Only the factor **PROX_CBD** is not used in model building since it has high correlation with another factor **PROX_GDPRI**.
 
 # 7.0 References
 
-[onemapsgapi](https://cran.r-project.org/web/packages/onemapsgapi/onemapsgapi.pdf)
-[Mall-Coordinates-Web-Scraper](https://github.com/ValaryLim/Mall-Coordinates-Web-Scraper/blob/master/mall_coordinates_updated.csv)
-[Geocoding Singapore Coordinates: OneMap API](https://towardsdatascience.com/geocoding-singapore-coordinates-onemap-api-3e1542bf26f7)
-[OneMap API Docs](https://www.onemap.gov.sg/docs/#introduction)
-[A Comprehensive Guide to Singapore’s SAP Schools](https://smiletutor.sg/a-comprehensive-guide-to-singapores-sap-schools/)
-[Gifted Education Programme (GEP) Schools in Singapore: Which One to Choose?](https://www.kiasuparents.com/kiasu/article/gifted-education-programme-gep-schools-in-singapore-which-one-to-choose/)
+- [onemapsgapi](https://cran.r-project.org/web/packages/onemapsgapi/onemapsgapi.pdf)
+- [Mall-Coordinates-Web-Scraper](https://github.com/ValaryLim/Mall-Coordinates-Web-Scraper/blob/master/mall_coordinates_updated.csv)
+- [Geocoding Singapore Coordinates: OneMap API](https://towardsdatascience.com/geocoding-singapore-coordinates-onemap-api-3e1542bf26f7)
+- [OneMap API Docs](https://www.onemap.gov.sg/docs/#introduction)
+- [A Comprehensive Guide to Singapore’s SAP Schools](https://smiletutor.sg/a-comprehensive-guide-to-singapores-sap-schools/)
+- [Gifted Education Programme (GEP) Schools in Singapore: Which One to Choose?](https://www.kiasuparents.com/kiasu/article/gifted-education-programme-gep-schools-in-singapore-which-one-to-choose/)
